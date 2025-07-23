@@ -5,3 +5,4 @@ langchain-chroma
 ollama
 pydantic
 requests
+sentence-transformers

@@ -6,6 +6,7 @@ from core.prompts import get_prompt
 from core.webSearch import search_web
 from data.realtime_data import get_current_datetime, get_weather
 from core.prompt_engineering import should_search
+from core.vectorstore import search_similar
 
 model = OllamaLLM(model="llama3.1:8b")
 
@@ -24,34 +25,39 @@ def ask_llm_with_context(question: str, history: str = "", web_info: str = "") -
     })
 
 def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
-    """
-    Hỏi mô hình LLM có kèm bộ nhớ.
-    Nếu câu hỏi liên quan thời gian hoặc thời tiết → trả lời trực tiếp.
-    Nếu LLM trả lời không rõ ràng → tự động tìm kiếm web và hỏi lại.
-    """
     if any(kw in question.lower() for kw in ["ngày mấy", "hôm nay là", "bây giờ là", "thứ mấy"]):
         return get_current_datetime()
 
     if any(kw in question.lower() for kw in ["thời tiết", "trời có mưa", "nhiệt độ", "trời nắng không"]):
         return get_weather()
 
-    if should_search(question):
-        return search_web(question)
-
     history = memory.get_history()
+
+    # 🧠 Tìm trong Vector Store
+    vector_results = search_similar(question)
+    vector_info = "\n".join([doc.page_content for doc in vector_results]) if vector_results else ""
+
     web_info = ""
+    # 🌐 Nếu nên search web → tìm
+    if should_search(question):
+        web_info = search_web(question)
 
-    answer = ask_llm_with_context(question, history, web_info)
+    # 🧠 Ưu tiên vector_info + web_info
+    combined_info = f"{vector_info}\n{web_info}".strip()
 
+    # 💬 Hỏi LLM
+    answer = ask_llm_with_context(question, history, combined_info)
+
+    # ❓ Nếu LLM trả lời không rõ → thử tìm web lần nữa (nếu chưa tìm)
     if (
         answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."] or
         len(answer.strip()) < 30 or
         "không biết" in answer.lower() or
         "không rõ" in answer.lower()
-    ):
+    ) and not web_info:
         web_info = search_web(question)
-        if web_info:
-            answer = ask_llm_with_context(question, history, web_info)
+        combined_info = f"{vector_info}\n{web_info}".strip()
+        answer = ask_llm_with_context(question, history, combined_info)
 
     memory.add("user", question)
     memory.add("bot", answer)
