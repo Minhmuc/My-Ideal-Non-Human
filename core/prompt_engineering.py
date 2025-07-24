@@ -60,12 +60,28 @@ def classify_intent(user_input: str) -> str:
 def greeting() -> str:
     return get_prompt("greeting")
 
-_exit_prompt = PromptTemplate(
+exit_intent_confidence_prompt = PromptTemplate(
     input_variables=["user_input"],
     template="""
-    Câu sau có vẻ cho thấy người dùng muốn kết thúc cuộc trò chuyện: "{user_input}".
-    Hãy tạo một câu hỏi xác nhận tự nhiên, đồng cảm, và không lặp lại như trước.
-    Chỉ trả về một câu hỏi xác nhận.
+    Người dùng nói: "{user_input}"
+
+    Hãy trả lời chính xác một trong 3 mức: "cao", "trung bình", hoặc "thấp", để đánh giá mức độ người dùng có ý định kết thúc cuộc trò chuyện.
+    Trả lời ngắn gọn, không giải thích.
     """
 )
-confirm_message = (_exit_prompt | model).invoke({"user_input": clean_input})
+
+def exit_intent_confidence(user_input: str) -> str:
+    return (exit_intent_confidence_prompt | model).invoke({"user_input": user_input}).lower()
+
+extract_location_prompt = PromptTemplate.from_template(
+    "Câu hỏi: {question}\n"
+    "Địa điểm được nhắc tới trong câu hỏi là gì? Nếu không có thì trả lời chính xác 'không có'."
+)
+
+extract_location_chain = extract_location_prompt | model
+
+def extract_location_from_question(question: str) -> str:
+    location = extract_location_chain.invoke({"question": question}).strip()
+    if location.lower() in ["không có", "none", ""]:
+        return "Hanoi"
+    return location

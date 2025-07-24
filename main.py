@@ -1,16 +1,18 @@
 from core.llm_interface import ask_llm_with_memory
 from core.memory import ConversationBufferMemory
-from core.prompt_engineering import clean_input, exit_intent, confirm_message
-from core.prompts import get_prompt
+from core.prompt_engineering import clean_input,  exit_intent_confidence
+from core.prompts import get_prompt,exit_prompt
 
 if __name__ == "__main__":
+    print("🤖 M.I.N.H: Powering Up...")
     memory = ConversationBufferMemory()
     greeting_message = get_prompt("greeting")
     print(f"🤖 M.I.N.H: {greeting_message}")
     while True:
         user_input = input("👤 Bạn: ")
-        if exit_intent(user_input):
-            confirm_quit = input(f"🤖 M.I.N.H: {confirm_message} (y/n): ").strip().lower()
+        confidence = exit_intent_confidence(user_input)
+        if confidence in ("cao"):
+            confirm_quit = input(f"🤖 M.I.N.H: {(exit_prompt())} (y/n): ").strip().lower()
             if confirm_quit in ["y", "yes", "có"]:
                 print(f"🤖 M.I.N.H: {get_prompt('end')}")
                 break

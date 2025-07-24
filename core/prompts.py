@@ -1,4 +1,5 @@
 # prompts.py
+import random
 
 SYSTEM_PROMPT = (
     "Bạn là MINH (My Ideal Non-Human), một trợ lý AI cá nhân thông minh, đang chạy local để hỗ trợ 'sếp' trong các tác vụ hàng ngày như: trò chuyện, tìm kiếm thông tin, điều khiển máy tính, ghi nhớ nội dung, và phản hồi tự nhiên như con người.\n\n"
@@ -69,20 +70,9 @@ PROMPTS = {
     )
 }
 
-INTENTS_PROMPTS = {
-    "time_query": {
-        "prompt": "Lấy thời gian hiện tại và trả lời cho người dùng bằng tiếng Việt.",
-    },
-    "weather_query": {
-        "prompt": "Lấy thông tin thời tiết hiện tại tại vị trí của người dùng.",
-    },
-    "web_search": {
-        "prompt": "Tìm kiếm thông tin mới nhất từ web (chỉ tiếng Việt nếu có thể) và tóm tắt dễ hiểu.",
-    }
-}
+
 
 def get_prompt(prompt_type: str) -> str:
     return PROMPTS.get(prompt_type, "⚠️ Prompt không hợp lệ hoặc chưa được định nghĩa.")
-
-def get_intent_prompt(intent: str) -> str:
-    return INTENTS_PROMPTS.get(intent, {}).get("prompt", "⚠️ Không có prompt cho intent này.")
+def exit_prompt():
+    return random.choice(PROMPTS["confirm_exit"])
