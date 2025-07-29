@@ -5,7 +5,7 @@ from core.memory import ConversationBufferMemory
 from core.prompts import get_prompt
 from core.webSearch import search_web
 from data.realtime_data import get_current_datetime, get_weather
-from core.prompt_engineering import should_search, extract_location_from_question
+from core.prompt_engineering import should_search, extract_location_from_question, is_weather_intent, is_date_time_intent, date_time_response
 from core.vectorstore import search_similar
 
 model = OllamaLLM(model="llama3.1:8b")
@@ -25,10 +25,10 @@ def ask_llm_with_context(question: str, history: str = "", web_info: str = "") -
     })
 
 def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
-    if any(kw in question.lower() for kw in ["ngày mấy", "hôm nay là", "bây giờ là", "thứ mấy"]):
-        return get_current_datetime()
+    if is_date_time_intent(question):
+        return date_time_response(question, get_current_datetime())
 
-    if any(kw in question.lower() for kw in ["thời tiết", "thời tiết hôm nay", "nắng", "mưa"]):
+    if is_weather_intent(question):
         location = extract_location_from_question(question)
         return get_weather(location)
 

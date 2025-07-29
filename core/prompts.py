@@ -67,6 +67,9 @@ PROMPTS = {
         "MINH hơi buồn nếu bạn rời đi... bạn thật sự muốn thoát chứ?",
         "Có cần MINH lưu lại gì không trước khi kết thúc?",
         "Bạn có muốn kết thúc cuộc trò chuyện này không?"
+    ),
+    "tell_datetime":(
+        ""
     )
 }
 
