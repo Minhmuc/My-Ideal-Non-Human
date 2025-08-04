@@ -1,4 +1,4 @@
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import wikipedia
 
 def search_web(query: str, num_results: int = 5) -> str:

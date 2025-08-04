@@ -1,7 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate,PromptTemplate
 from core.prompts import get_prompt
 from langchain_ollama import OllamaLLM
-from data.realtime_data import get_current_datetime
+from data.realtime_data import get_current_datetime, get_weather
 
 model = OllamaLLM(model="llama3.1:8b")
 
@@ -10,7 +10,7 @@ def clean_input(text: str) -> str:
 
 # ===== Should search on web =====
 _search_prompt = ChatPromptTemplate.from_template(
-    "Câu sau có cần tìm kiếm thông tin trên web không? Trả lời chỉ 'có' hoặc 'không'.\nCâu hỏi: {question}"
+    "Câu sau có cần tìm kiếm thông tin trên web không? Trả lời chính xác 'có' hoặc 'không'.\nCâu hỏi: {question}"
 )
 
 def should_search(question: str) -> bool:
@@ -59,7 +59,7 @@ Ví dụ:
 - "Dự báo mưa ở Đà Nẵng" → có
 - "Đang nóng quá trời!" → có
 - "Mở trình duyệt" → không
-
+- "nhiệt độ hôm nay" → có
 Trả lời:
 """
 )
@@ -97,7 +97,7 @@ Ví dụ:
 - "Bạn khỏe không?" → không
 - "Hẹn giờ giúp tôi" → có
 - "Ngày mai tôi có bận không?" → không
-mặc định trả lời:"không" nếu câu hỏi liên quan đến thời tiết.
+mặc định trả lời:"không" nếu câu hỏi liên quan đến thời tiết, nhiệt độ, nắng, mưa.
 Trả lời:
 """
 )
@@ -107,7 +107,7 @@ def is_date_time_intent(question: str) -> bool:
 
 date_time_prompt = PromptTemplate.from_template("""
 Hiện tại là {datetime_info}.
-Hãy trả lời câu hỏi sau một cách tự nhiên, thân thiện như một trợ lý ảo cá tính.
+Hãy trả lời câu hỏi sau một cách tự nhiên, thân thiện như một trợ lý ảo cá tính vầ luôn gọi người dùng là 'sếp'. người dùng hỏi gì trả lời nấy, hỏi giờ trả lời giờ, ngày trả lời ngày,...
 
 Câu hỏi: "{question}"
 Trả lời:
@@ -117,3 +117,19 @@ Trả lời:
 def date_time_response(question: str, datetime_info: str) -> str:
     datetime_info = get_current_datetime()
     return (date_time_prompt | model).invoke({"datetime_info": datetime_info, "question": question})
+
+Weather_infor_prompt = PromptTemplate.from_template(
+"""
+Thưa sếp, em vừa tra cứu được thời tiết: {weather_info}.
+
+Dựa trên thông tin trên, hãy trả lời câu hỏi sau theo phong cách tự nhiên, thân thiện, như cấp dưới trả lời sếp. Gọi người dùng là "sếp", và giữ chất riêng của một trợ lý ảo cá tính.
+
+Câu hỏi: "{question}"
+Trả lời:
+""")
+
+
+def weather_response(question: str, weather_info: str) -> str:
+    weather_info= get_weather(location=extract_location_from_question(question))
+    return (Weather_infor_prompt | model).invoke({"weather_info": weather_info, "question": question})
+
