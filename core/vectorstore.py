@@ -18,7 +18,7 @@ def get_vectorstore():
     )
 
 
-# ✅ Thêm hàm lưu với thời gian
+#  Thêm hàm lưu với thời gian
 def add_texts_to_vectorstore(texts: list[str]):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -32,7 +32,7 @@ def add_texts_to_vectorstore(texts: list[str]):
     vectorstore.add_documents(documents)
     print(f"✅ Đã thêm {len(documents)} đoạn vào vector store.")
 
-# ✅ Truy vấn và ưu tiên theo thời gian gần nhất nếu điểm tương tự giống nhau
+#  Truy vấn và ưu tiên theo thời gian gần nhất nếu điểm tương tự giống nhau
 def search_similar(query: str, k: int = 3):
     vectorstore = get_vectorstore()
     results = vectorstore.similarity_search(query, k=k)

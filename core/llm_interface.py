@@ -1,4 +1,4 @@
-from langchain_ollama import OllamaLLM
+from core.models import model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from core.memory import ConversationBufferMemory
@@ -8,17 +8,20 @@ from data.realtime_data import get_current_datetime, get_weather
 from core.prompt_engineering import should_search, extract_location_from_question, is_weather_intent, is_date_time_intent, date_time_response, weather_response
 from core.vectorstore import search_similar, add_texts_to_vectorstore
 
-model = OllamaLLM(model="llama3.1:8b")
 
-template = get_prompt("system") + "\n{history}\nThông tin tìm được:\n{retrieved_info}\nNgười dùng: {question}"
+template = """
+{system_prompt}
+Câu hỏi: {question}
+Ngữ cảnh: {history}
+Thống tin tìm kiếm: {retrieved_info}
+"""
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
 
 def ask_llm_with_context(question: str, history: str = "", retrieved_info: str = "") -> str:
     """Hỏi LLM kèm ngữ cảnh từ web."""
-    custom_prompt = ChatPromptTemplate.from_template(template)
-    custom_chain = custom_prompt | model
-    return custom_chain.invoke({
+    return chain.invoke({
+        "system_prompt": get_prompt("system"),
         "question": question,
         "history": history,
         "retrieved_info": retrieved_info
@@ -52,18 +55,15 @@ def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
 
     # ❓ Nếu LLM trả lời không rõ → thử tìm web lần nữa (nếu chưa tìm)
     if (
-        answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."] or
-        len(answer.strip()) < 30 or
-        "không biết" in answer.lower() or
-        "không rõ" in answer.lower()
+        answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."]
     ) and not web_info:
         web_info = search_web(question)
         retrieved_info = f"{vector_info}\n{web_info}".strip()
         answer = ask_llm_with_context(question, history, retrieved_info)
 
-    memory.add("user", question)
-    memory.add("bot", answer)
-    qa_pair = f"Người dùng: {question}\nTrợ lý: {answer}"
+    memory.add("Người dùng", question)
+    memory.add("MINH", answer)
+    qa_pair = f"Người dùng: {question}\nMINH: {answer}"
     add_texts_to_vectorstore([qa_pair])
 
     return answer

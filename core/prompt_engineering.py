@@ -1,9 +1,9 @@
 from langchain_core.prompts import ChatPromptTemplate,PromptTemplate
 from core.prompts import get_prompt
-from langchain_ollama import OllamaLLM
+from core.models import model
 from data.realtime_data import get_current_datetime, get_weather
 
-model = OllamaLLM(model="llama3.1:8b")
+
 
 def clean_input(text: str) -> str:
     return text.strip()

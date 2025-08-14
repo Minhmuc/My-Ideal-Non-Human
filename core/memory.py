@@ -11,7 +11,7 @@ class ConversationBufferMemory:
         recent = self.history[-n:]
         lines = []
         for turn in recent:
-            prefix = "Người dùng" if turn["role"] == "user" else "Trợ lý"
+            prefix = "Người dùng" if turn["role"] == "user" else "MINH"
             lines.append(f"{prefix}: {turn['message']}")
         return "\n".join(lines)
 
