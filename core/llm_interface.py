@@ -10,10 +10,11 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 
 
 template = """
-{system_prompt}
+Đây là danh tính của bạn, tuyệt đối không được bịa khi được hỏi về bản thân: {system_prompt}
 Câu hỏi: {question}
 Ngữ cảnh: {history}
-Thống tin tìm kiếm: {retrieved_info}
+Thông tin tìm kiếm: {retrieved_info}
+Trả lời:
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
@@ -51,15 +52,23 @@ def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
     retrieved_info = f"{vector_info}\n{web_info}".strip()
 
     # 💬 Hỏi LLM
-    answer = ask_llm_with_context(question, history, retrieved_info)
+    answer = chain.invoke({
+        "system_prompt": get_prompt("system"),
+        "question": question,
+        "history": history,
+        "retrieved_info": retrieved_info
+    })
 
     # ❓ Nếu LLM trả lời không rõ → thử tìm web lần nữa (nếu chưa tìm)
-    if (
-        answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."]
-    ) and not web_info:
+    if answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."] and not web_info:
         web_info = search_web(question)
         retrieved_info = f"{vector_info}\n{web_info}".strip()
-        answer = ask_llm_with_context(question, history, retrieved_info)
+        answer = chain.invoke({
+            "system_prompt": get_prompt("system"),
+            "question": question,
+            "history": history,
+            "retrieved_info": retrieved_info
+        })
 
     memory.add("Người dùng", question)
     memory.add("MINH", answer)

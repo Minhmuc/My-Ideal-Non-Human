@@ -10,7 +10,7 @@ def clean_input(text: str) -> str:
 
 # ===== Should search on web =====
 _search_prompt = ChatPromptTemplate.from_template(
-    "Câu sau có cần tìm kiếm thông tin trên web không? Trả lời chính xác 'có' hoặc 'không'.\nCâu hỏi: {question}"
+    "Câu sau có cần tìm kiếm thông tin trên web không? Trả lời chính xác 'có' nếu người dùng bảo tra cứu, tìm kiếm, wiki.\nCâu hỏi: {question}"
 )
 
 def should_search(question: str) -> bool:
