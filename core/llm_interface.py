@@ -11,11 +11,11 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 
 
 template = """
-Đây là danh tính của bạn, tuyệt đối không được bịa khi được hỏi về bản thân: {system_prompt}
+Đây là danh tính của bạn: {system_prompt}
 Câu hỏi: {question}
 Ngữ cảnh: {history}
 Thông tin tìm kiếm: {retrieved_info}
-Trả lời ngắn gọn, súc tích và chính xác. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
+Trả lời tự nhiên, ngắn gọn, súc tích và chính xác. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
