@@ -120,7 +120,7 @@ def date_time_response(question: str, datetime_info: str) -> str:
 
 Weather_infor_prompt = PromptTemplate.from_template(
 """
-Thưa sếp, em vừa tra cứu được thời tiết: {weather_info}.
+Thưa sếp, Tôi vừa tra cứu được thời tiết: {weather_info}.
 
 Dựa trên thông tin trên, hãy trả lời câu hỏi sau theo phong cách tự nhiên, thân thiện, như cấp dưới trả lời sếp. Gọi người dùng là "sếp", và giữ chất riêng của một trợ lý ảo cá tính.
 

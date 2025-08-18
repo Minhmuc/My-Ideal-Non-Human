@@ -1,4 +1,4 @@
-from core.llm_interface import ask_llm_with_memory
+from core.llm_interface import ask_llm_with_memory, provide_data_via_chat
 from core.memory import ConversationBufferMemory
 from core.prompt_engineering import exit_intent_confidence
 from core.prompts import get_prompt,exit_prompt, get_greeting
@@ -16,6 +16,11 @@ if __name__ == "__main__":
             if confirm_quit in ["y", "yes", "có"]:
                 print(f"🤖 M.I.N.H: {get_prompt('end')}")
                 break
+        # Kiểm tra nếu người dùng cung cấp dữ liệu
+        data_response = provide_data_via_chat(user_input, memory)
+        if data_response:
+            print(f"🤖 M.I.N.H: {data_response}")
+            continue
         print("🤖M.I.N.H đang suy nghĩ...")
-        response = ask_llm_with_memory(user_input,memory)
+        response = ask_llm_with_memory(user_input, memory)
         print(f"🤖 M.I.N.H: {response}")

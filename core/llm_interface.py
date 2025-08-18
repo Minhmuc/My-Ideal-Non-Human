@@ -1,3 +1,4 @@
+
 from core.models import model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
@@ -14,28 +15,35 @@ template = """
 Câu hỏi: {question}
 Ngữ cảnh: {history}
 Thông tin tìm kiếm: {retrieved_info}
-Trả lời:
+Trả lời ngắn gọn, súc tích và chính xác. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
 
-def ask_llm_with_context(question: str, history: str = "", retrieved_info: str = "") -> str:
+def ask_llm_with_context(question: str, history: str = "", vector_info: str = "") -> str:
     """Hỏi LLM kèm ngữ cảnh từ web."""
     return chain.invoke({
         "system_prompt": get_prompt("system"),
         "question": question,
         "history": history,
-        "retrieved_info": retrieved_info
+        "vector_info": vector_info
     })
+def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> str:
+    """
+    Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat. Nếu câu hỏi bắt đầu bằng 'dữ liệu:' hoặc 'data:', lưu nội dung vào vectorstore.
+    """
+    if user_input.lower().startswith(('dữ liệu:', 'data:')):
+        data_content = user_input.split(':', 1)[-1].strip()
+        if data_content:
+            add_texts_to_vectorstore([f"Dữ liệu người dùng: {data_content}"])
+            memory.add("Người dùng", user_input)
+            memory.add("MINH", "Đã lưu dữ liệu của sếp vào hệ thống. Sếp có thể hỏi lại bất cứ lúc nào!")
+            return "Đã lưu dữ liệu của sếp vào hệ thống. Sếp có thể hỏi lại bất cứ lúc nào!"
+        else:
+            return "Sếp cần nhập nội dung dữ liệu sau 'dữ liệu:' hoặc 'data:' nhé!"
+    return None
 
 def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
-    if is_date_time_intent(question):
-        return date_time_response(question, get_current_datetime())
-
-    if is_weather_intent(question):
-        location = extract_location_from_question(question)
-        return weather_response(question, get_weather(location))
-
 
     history = memory.get_history()
 

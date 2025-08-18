@@ -20,11 +20,7 @@ def get_vectorstore():
 
 
 def clean_text_for_storage(text: str) -> str:
-    """
-    Loại bỏ prefix Người dùng / MINH để tránh phá nhân cách khi retrieve.
-    """
-    text = text.replace("Người dùng:", "").replace("MINH:", "").strip()
-    return text
+    return text.strip()
 
 
 def add_texts_to_vectorstore(texts: list[str]):
@@ -36,9 +32,18 @@ def add_texts_to_vectorstore(texts: list[str]):
 
     cleaned_texts = [clean_text_for_storage(t) for t in texts]
     documents = text_splitter.create_documents(
-        cleaned_texts,
-        metadatas=[{"timestamp": now, "type": "chat"} for _ in cleaned_texts]
-    )
+    cleaned_texts,
+    metadatas=[
+        {
+            "timestamp": now,
+            "type": "chat",
+            "chunk_id": i,
+            "role": "user" if i % 2 == 0 else "assistant"
+        }
+        for i, _ in enumerate(cleaned_texts)
+    ]
+)
+
 
     vectorstore = get_vectorstore()
     vectorstore.add_documents(documents)
@@ -68,6 +73,6 @@ def search_similar(query: str, k: int = 3):
 
     # Wrap dữ liệu để LLM không dùng làm nhân cách
     for doc in final_results:
-        doc.page_content = f"[THÔNG TIN THAM KHẢO - KHÔNG THAY ĐỔI NHÂN CÁCH]\n{doc.page_content}"
+        doc.page_content = f"\n{doc.page_content}"
 
     return final_results
