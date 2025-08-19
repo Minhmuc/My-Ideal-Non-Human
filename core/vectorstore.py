@@ -51,28 +51,19 @@ def add_texts_to_vectorstore(texts: list[str]):
 
 
 def search_similar(query: str, k: int = 3):
-    """
-    Truy vấn và ưu tiên theo similarity trước, timestamp sau nếu similarity bằng nhau.
-    """
     vectorstore = get_vectorstore()
-
-    # Lấy cả điểm similarity
-    results_with_scores = vectorstore.similarity_search_with_score(query, k=k * 2)
-
-    # Sắp theo similarity trước, rồi timestamp nếu similarity bằng nhau
-    results_with_scores.sort(
-        key=lambda x: (
-            -x[1],  # similarity score giảm dần
-            x[0].metadata.get("timestamp", "0000")  # timestamp mới nhất trước
-        ),
-        reverse=False  # Vì score nhỏ hơn nghĩa là giống hơn trong một số lib
-    )
-
-    # Lấy top-k cuối cùng
-    final_results = [doc for doc, _ in results_with_scores[:k]]
-
-    # Wrap dữ liệu để LLM không dùng làm nhân cách
-    for doc in final_results:
-        doc.page_content = f"\n{doc.page_content}"
-
-    return final_results
+    try:
+        # Nếu vectorstore hỗ trợ trả về score
+        results_with_scores = vectorstore.similarity_search_with_score(query, k=k)
+        results_with_scores.sort(
+            key=lambda x: (
+                -x[1],  # similarity score giảm dần
+                x[0].metadata.get("timestamp", "0000")
+            ),
+            reverse=False
+        )
+        return results_with_scores  # [(Document, score), ...]
+    except Exception:
+        # Nếu không hỗ trợ score, trả về Document
+        results = vectorstore.similarity_search(query, k=k)
+        return results  # [Document, ...]

@@ -1,4 +1,3 @@
-
 from core.models import model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
@@ -12,21 +11,20 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 
 template = """
 Đây là danh tính của bạn: {system_prompt}
-Câu hỏi: {question}
-Ngữ cảnh: {history}
-Thông tin tìm kiếm: {retrieved_info}
-Trả lời tự nhiên, ngắn gọn, súc tích và chính xác. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
+Dữ liệu liên quan từ hệ thống (nếu có): {retrieved_info}
+Câu hỏi hiện tại: {question}
+Trả lời tự nhiên, ngắn gọn, súc tích và chính xác, ưu tiên sử dụng dữ liệu đã lưu nếu liên quan. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
 
-def ask_llm_with_context(question: str, history: str = "", vector_info: str = "") -> str:
-    """Hỏi LLM kèm ngữ cảnh từ web."""
+def ask_llm_with_context(question: str, history: str = "", retrieved_info: str = "") -> str:
+    """Hỏi LLM kèm ngữ cảnh từ web và vectorstore."""
     return chain.invoke({
         "system_prompt": get_prompt("system"),
         "question": question,
         "history": history,
-        "vector_info": vector_info
+        "retrieved_info": retrieved_info
     })
 def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> str:
     """
@@ -48,8 +46,14 @@ def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
     history = memory.get_history()
 
     # 🧠 Tìm trong Vector Store
-    vector_results = search_similar(question)
-    vector_info = "\n".join([doc.page_content for doc in vector_results]) if vector_results else ""
+    vector_results = search_similar(question, k=5)
+        # Nếu kết quả là tuple (Document, score)
+    if vector_results and isinstance(vector_results[0], tuple) and len(vector_results[0]) == 2:
+        vector_info = "\n".join([doc.page_content for doc, score in vector_results if score > 0.7])
+        if not vector_info:
+            vector_info = "\n".join([doc.page_content for doc, score in vector_results[:3]])
+    else:
+        vector_info = "\n".join([doc.page_content for doc in vector_results]) if vector_results else ""
 
     web_info = ""
     # 🌐 Nếu nên search web → tìm
@@ -57,15 +61,12 @@ def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
         web_info = search_web(question)
 
     # 🧠 Ưu tiên vector_info + web_info
-    retrieved_info = f"{vector_info}\n{web_info}".strip()
+    retrieved_info = vector_info.strip()
+    if web_info:
+        retrieved_info += f"\nThông tin mới tìm kiếm: {web_info.strip()}"
 
     # 💬 Hỏi LLM
-    answer = chain.invoke({
-        "system_prompt": get_prompt("system"),
-        "question": question,
-        "history": history,
-        "retrieved_info": retrieved_info
-    })
+    answer = ask_llm_with_context(question, "", retrieved_info)
 
     # ❓ Nếu LLM trả lời không rõ → thử tìm web lần nữa (nếu chưa tìm)
     if answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."] and not web_info:

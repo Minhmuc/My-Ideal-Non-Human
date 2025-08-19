@@ -79,9 +79,6 @@ PROMPTS = {
         "Có cần MINH lưu lại gì không trước khi kết thúc?",
         "Bạn có muốn kết thúc cuộc trò chuyện này không?"
     ),
-    "tell_datetime":(
-        ""
-    )
 }
 
 
