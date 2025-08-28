@@ -5,7 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from datetime import datetime
 import os
 
-embedding_model = OllamaEmbeddings(model="yxchia/multilingual-e5-base:latest")
+embedding_model = OllamaEmbeddings(model="bge-m3")
 CHROMA_PATH = "db/chroma_db"
 os.makedirs(CHROMA_PATH, exist_ok=True)
 
@@ -50,7 +50,7 @@ def add_texts_to_vectorstore(texts: list[str]):
     print(f"✅ Đã thêm {len(documents)} đoạn vào vector store.")
 
 
-def search_similar(query: str, k: int = 3):
+def search_similar(query: str, k: int = 5):
     vectorstore = get_vectorstore()
     try:
         # Nếu vectorstore hỗ trợ trả về score
@@ -67,3 +67,4 @@ def search_similar(query: str, k: int = 3):
         # Nếu không hỗ trợ score, trả về Document
         results = vectorstore.similarity_search(query, k=k)
         return results  # [Document, ...]
+

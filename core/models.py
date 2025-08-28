@@ -1,3 +1,3 @@
 from langchain_ollama import OllamaLLM
 
-model = OllamaLLM(model="MINHEgo1.0")
+model = OllamaLLM(model="MinhEgo1.0") # MinhEgoNoob

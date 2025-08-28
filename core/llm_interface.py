@@ -10,10 +10,10 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 
 
 template = """
-Đây là danh tính của bạn: {system_prompt}
-Dữ liệu liên quan từ hệ thống (nếu có): {retrieved_info}
+Đây là bạn: {system_prompt}
+Dữ liệu liên quan từ hệ thống: {retrieved_info}
 Câu hỏi hiện tại: {question}
-Trả lời tự nhiên, ngắn gọn, súc tích và chính xác, ưu tiên sử dụng dữ liệu đã lưu nếu liên quan. Nếu không rõ, hãy hỏi lại người dùng để làm rõ.
+hãy phân tích kỹ và trả lời rõ ràng, chỉ sử dụng thông tin liên quan.
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
@@ -57,8 +57,7 @@ def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
 
     web_info = ""
     # 🌐 Nếu nên search web → tìm
-    if should_search(question):
-        web_info = search_web(question)
+    web_info = search_web(question)
 
     # 🧠 Ưu tiên vector_info + web_info
     retrieved_info = vector_info.strip()

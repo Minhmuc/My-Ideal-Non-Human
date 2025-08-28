@@ -1,7 +1,7 @@
 from ddgs import DDGS
 import wikipedia
 
-def search_web(query: str, num_results: int = 5) -> str:
+def search_web(query: str, num_results: int = 3) -> str:
     """
     Tìm kiếm trên DuckDuckGo và Wikipedia.
     Trả về chuỗi tổng hợp kết quả (dùng trong prompt LLM).
