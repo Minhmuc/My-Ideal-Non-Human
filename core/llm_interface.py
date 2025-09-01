@@ -5,18 +5,20 @@ from core.memory import ConversationBufferMemory
 from core.prompts import get_prompt
 from core.webSearch import search_web
 from data.realtime_data import get_current_datetime, get_weather
-from core.prompt_engineering import should_search, extract_location_from_question, is_weather_intent, is_date_time_intent, date_time_response, weather_response
+from core.prompt_engineering import date_time_response, weather_response,extract_search_query, extract_location_from_question
 from core.vectorstore import search_similar, add_texts_to_vectorstore
+from data.Intent_ex import detect_intent
 
-
+# Prompt template
 template = """
 Đây là bạn: {system_prompt}
-Dữ liệu liên quan từ hệ thống: {retrieved_info}
+Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
 Câu hỏi hiện tại: {question}
 hãy phân tích kỹ và trả lời rõ ràng, chỉ sử dụng thông tin liên quan.
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
+
 
 def ask_llm_with_context(question: str, history: str = "", retrieved_info: str = "") -> str:
     """Hỏi LLM kèm ngữ cảnh từ web và vectorstore."""
@@ -26,10 +28,10 @@ def ask_llm_with_context(question: str, history: str = "", retrieved_info: str =
         "history": history,
         "retrieved_info": retrieved_info
     })
+
+
 def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> str:
-    """
-    Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat. Nếu câu hỏi bắt đầu bằng 'dữ liệu:' hoặc 'data:', lưu nội dung vào vectorstore.
-    """
+    """Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat."""
     if user_input.lower().startswith(('dữ liệu:', 'data:')):
         data_content = user_input.split(':', 1)[-1].strip()
         if data_content:
@@ -41,46 +43,65 @@ def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> 
             return "Sếp cần nhập nội dung dữ liệu sau 'dữ liệu:' hoặc 'data:' nhé!"
     return None
 
-def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
 
-    history = memory.get_history()
+async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
+    try:
+        # 1. Dùng Intent Detector
+        intent = await detect_intent(question)
+        intent = intent.lower().strip()
 
-    # 🧠 Tìm trong Vector Store
-    vector_results = search_similar(question, k=5)
-        # Nếu kết quả là tuple (Document, score)
-    if vector_results and isinstance(vector_results[0], tuple) and len(vector_results[0]) == 2:
-        vector_info = "\n".join([doc.page_content for doc, score in vector_results if score > 0.7])
-        if not vector_info:
-            vector_info = "\n".join([doc.page_content for doc, score in vector_results[:3]])
-    else:
-        vector_info = "\n".join([doc.page_content for doc in vector_results]) if vector_results else ""
+        # 2. Xử lý intent đặc biệt
+        if intent == "datetime":
+            return date_time_response(question, get_current_datetime())
+        elif intent == "weather":
+            return weather_response(question, get_weather(extract_location_from_question(question)))
 
-    web_info = ""
-    # 🌐 Nếu nên search web → tìm
-    web_info = search_web(question)
+        history = memory.get_history()
 
-    # 🧠 Ưu tiên vector_info + web_info
-    retrieved_info = vector_info.strip()
-    if web_info:
-        retrieved_info += f"\nThông tin mới tìm kiếm: {web_info.strip()}"
+        # 3. Tìm trong Vector Store
+        vector_results = search_similar(question, k=5)
+        vector_info = ""
+        if vector_results:
+            if isinstance(vector_results[0], tuple):
+                vector_info = "\n".join(
+                    [doc.page_content for doc, score in vector_results if score > 0.7]
+                ) or "\n".join([doc.page_content for doc, _ in vector_results[:3]])
+            else:
+                vector_info = "\n".join([doc.page_content for doc in vector_results])
 
-    # 💬 Hỏi LLM
-    answer = ask_llm_with_context(question, "", retrieved_info)
+        # 4. Nếu intent = search → search web
+        web_info = ""
+        if intent == "search":
+            web_info = search_web(extract_search_query(question))
 
-    # ❓ Nếu LLM trả lời không rõ → thử tìm web lần nữa (nếu chưa tìm)
-    if answer.strip().lower() in ["", "tôi không biết.", "tôi không rõ."] and not web_info:
-        web_info = search_web(question)
-        retrieved_info = f"{vector_info}\n{web_info}".strip()
-        answer = chain.invoke({
-            "system_prompt": get_prompt("system"),
-            "question": question,
-            "history": history,
-            "retrieved_info": retrieved_info
-        })
+        # 5. Kết hợp thông tin
+        retrieved_info = vector_info.strip()
+        if web_info:
+            retrieved_info += f"\nThông tin mới tìm kiếm: {web_info.strip()}"
 
-    memory.add("Người dùng", question)
-    memory.add("MINH", answer)
-    qa_pair = f"Người dùng: {question}\nMINH: {answer}"
-    add_texts_to_vectorstore([qa_pair])
+        # 6. Gửi câu hỏi cho LLM
+        answer = ask_llm_with_context(question, history, retrieved_info)
 
-    return answer
+        # 7. Nếu LLM không trả lời được → fallback search web
+        if not answer.strip() or answer.lower().strip() in ["tôi không biết.", "tôi không rõ."]:
+            if not web_info:
+                web_info = search_web(question)
+                retrieved_info = f"{vector_info}\n{web_info}".strip()
+                answer = chain.invoke({
+                    "system_prompt": get_prompt("system"),
+                    "question": question,
+                    "history": history,
+                    "retrieved_info": retrieved_info
+                })
+
+        # 8. Lưu vào memory + vectorstore
+        memory.add("Người dùng", question)
+        memory.add("MINH", answer)
+        qa_pair = f"Người dùng: {question}\nMINH: {answer}"
+        add_texts_to_vectorstore([qa_pair])
+
+        return answer
+
+    except Exception as e:
+        print(f"[ask_llm_with_memory] Lỗi: {e}")
+        return "Xin lỗi sếp, có lỗi khi xử lý yêu cầu!"

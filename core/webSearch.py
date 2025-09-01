@@ -1,33 +1,34 @@
-from ddgs import DDGS
-import wikipedia
+from googleapiclient.discovery import build
 
-def search_web(query: str, num_results: int = 3) -> str:
+API_KEY = "AIzaSyAmlVd14Rljkr0nHViDVGcV6nvFY5IJRio"  # Thay bằng API key của bạn
+CX = "e4b955cfcc0304e47"            # Thay bằng CX của bạn
+
+def search_web(query: str, num_results: int = 5) -> str:
     """
-    Tìm kiếm trên DuckDuckGo và Wikipedia.
-    Trả về chuỗi tổng hợp kết quả (dùng trong prompt LLM).
+    Hàm tìm kiếm Google bằng Google Custom Search API
+    Trả về kết quả tiếng Việt tối ưu
     """
-    results = []
-
-    # DuckDuckGo Search
     try:
-        with DDGS() as ddgs:
-            for result in ddgs.text(query, max_results=num_results):
-                content = result.get("body") or result.get("title") or ""
-                link = result.get("href") or ""
-                if content:
-                    results.append(f"{content}\nLink: {link}")
-    except Exception as e:
-        results.append(f"[DuckDuckGo Error] {str(e)}")
+        service = build("customsearch", "v1", developerKey=API_KEY)
+        results = service.cse().list(
+            q=query,
+            cx=CX,
+            lr="lang_vi",      # Ưu tiên tiếng Việt
+            hl="vi",           # Trả về kết quả tiếng Việt
+            num=num_results
+        ).execute()
 
-    # Wikipedia Summary
-    try:
-        summary = wikipedia.summary(query, sentences=3, auto_suggest=True)
-        results.append(f"[Wikipedia] {summary}")
-    except wikipedia.exceptions.DisambiguationError as e:
-        results.append(f"[Wikipedia Warning] Nhiều kết quả: {e.options[:3]}")
-    except wikipedia.exceptions.PageError:
-        results.append("[Wikipedia Warning] Không tìm thấy trang phù hợp.")
-    except Exception as e:
-        results.append(f"[Wikipedia Error] {str(e)}")
+        data = []
+        if "items" in results:
+            for item in results["items"]:
+                title = item.get("title", "Không có tiêu đề")
+                snippet = item.get("snippet", "Không có mô tả")
+                link = item.get("link", "#")
+                data.append(f"📌 {title}\n{snippet}\n🔗 Link: {link}")
+        else:
+            data.append("⚠️ Không tìm thấy kết quả phù hợp.")
 
-    return "\n\n".join(results)
+        return "\n\n".join(data)
+
+    except Exception as e:
+        return f"❌ Lỗi khi tìm kiếm: {e}"

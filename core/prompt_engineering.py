@@ -4,7 +4,7 @@ from core.models import model
 from data.realtime_data import get_current_datetime, get_weather
 
 
-
+personality = get_prompt("system")
 def clean_input(text: str) -> str:
     return text.strip()
 
@@ -20,7 +20,7 @@ def should_search(question: str) -> bool:
 exit_intent_confidence_prompt = PromptTemplate(
     input_variables=["user_input"],
     template="""
-Bạn là một trợ lý AI. Dưới đây là một số ví dụ về mức độ người dùng có ý định kết thúc cuộc trò chuyện:
+nhiệm vụ của bạn là đánh giá mức độ ý định kết thúc cuộc trò chuyện của người dùng dựa trên câu họ vừa nhập.
 
 Ví dụ:
 - Người dùng nói: "Cảm ơn nhé" → thấp
@@ -46,8 +46,7 @@ def exit_intent_confidence(user_input: str) -> str:
 weather_intent_prompt = PromptTemplate.from_template(
     """
 Câu hỏi: {question}
-Câu hỏi trên có phải đang hỏi về thời tiết không?
-
+nhiệm vụ của bạn là xác định xem câu hỏi có liên quan đến thời tiết hay không.
 Chỉ trả lời đúng một từ: "có" hoặc "không".
 
 Ví dụ:
@@ -81,34 +80,37 @@ def extract_location_from_question(question: str) -> str:
         return "Hanoi"
     return location
 
+
 date_time_intent_prompt = PromptTemplate.from_template(
     """
-Câu hỏi: {question}
-Câu hỏi trên có phải đang hỏi về ngày, giờ hoặc thời gian hiện tại không?
+Bạn là hệ thống phân loại intent. Nhiệm vụ của bạn: Xác định xem câu hỏi của người dùng CÓ yêu cầu cung cấp thông tin về NGÀY/GIỜ hiện tại hay không.
 
-Chỉ trả lời chính xác một từ: "có" hoặc "không".
+Chỉ trả về một trong hai từ khóa:
+- "yes"  → nếu câu hỏi **trực tiếp** hỏi về ngày, giờ, hôm nay, hôm qua, hôm sau, hoặc giờ hiện tại ở một nơi cụ thể.
+- "no"   → nếu không liên quan.
 
 Ví dụ:
-- "Mấy giờ rồi?" → có
-- "Bây giờ là ngày bao nhiêu?" → có
-- "Mở nhạc đi" → không
-- "Hôm nay là thứ mấy?" → có
-- "Giờ ở Tokyo là mấy giờ?" → có
-- "Bạn khỏe không?" → không
-- "Hẹn giờ giúp tôi" → có
-- "Ngày mai tôi có bận không?" → không
-mặc định trả lời:"không" nếu câu hỏi liên quan đến thời tiết, nhiệt độ, nắng, mưa.
-Trả lời:
+- "Mấy giờ rồi?" → yes
+- "Bây giờ là ngày bao nhiêu?" → yes
+- "Hôm nay là thứ mấy?" → yes
+- "Giờ ở Tokyo là mấy giờ?" → yes
+- "Ngày mai tôi có bận không?" → no
+- "Hẹn giờ giúp tôi" → no
+- "Mở nhạc đi" → no
+- "Bạn khỏe không?" → no
+
+Câu hỏi: {question}
+Chỉ trả về "yes" hoặc "no".
 """
 )
 
+
 def is_date_time_intent(question: str) -> bool:
-    return "có" in (date_time_intent_prompt | model).invoke({"question": question}).lower()
+    return "yes" in (date_time_intent_prompt | model).invoke({"question": question}).lower()
 
 date_time_prompt = PromptTemplate.from_template("""
 Hiện tại là {datetime_info}.
-Hãy trả lời câu hỏi sau một cách tự nhiên, thân thiện như một trợ lý ảo cá tính vầ luôn gọi người dùng là 'sếp'. người dùng hỏi gì trả lời nấy, hỏi giờ trả lời giờ, ngày trả lời ngày,...
-
+đây là bạn: {personality} nhiệm vụ của bạn là trả lời câu hỏi liên quan đến date time
 Câu hỏi: "{question}"
 Trả lời:
 """
@@ -116,13 +118,12 @@ Trả lời:
 
 def date_time_response(question: str, datetime_info: str) -> str:
     datetime_info = get_current_datetime()
-    return (date_time_prompt | model).invoke({"datetime_info": datetime_info, "question": question})
+    return (date_time_prompt | model).invoke({"datetime_info": datetime_info, "question": question, "personality": personality})
 
-Weather_infor_prompt = PromptTemplate.from_template(
+Weather_info_prompt = PromptTemplate.from_template(
 """
-Thưa sếp, Tôi vừa tra cứu được thời tiết: {weather_info}.
-
-Dựa trên thông tin trên, hãy trả lời câu hỏi sau theo phong cách tự nhiên, thân thiện, như cấp dưới trả lời sếp. Gọi người dùng là "sếp", và giữ chất riêng của một trợ lý ảo cá tính.
+Thông tin về thời tiết: {weather_info}.
+đây là bạn: {personality} nhiệm vụ của bạn là trả lời câu hỏi liên quan đến thời tiết
 
 Câu hỏi: "{question}"
 Trả lời:
@@ -131,5 +132,42 @@ Trả lời:
 
 def weather_response(question: str, weather_info: str) -> str:
     weather_info= get_weather(location=extract_location_from_question(question))
-    return (Weather_infor_prompt | model).invoke({"weather_info": weather_info, "question": question})
+    return (Weather_info_prompt | model).invoke({"weather_info": weather_info, "question": question, "personality": personality})
 
+# Prompt thông minh hơn
+extract_search_query_prompt = PromptTemplate.from_template("""
+Câu hỏi của người dùng: {question}
+Bạn là một công cụ tạo truy vấn tìm kiếm Google tối ưu, nên nhớ bạn không phải công cụ trả lời câu hỏi nên hãy làm đúng nhiệm vụ của mình, không được bịa.
+Chỉ trả về DUY NHẤT câu truy vấn ngắn gọn nhất có thể.
+Nhiệm vụ:
+Không giải thích.
+Không liệt kê bước.
+Không phân tích.
+Không nhắc lại câu hỏi.
+Không thêm từ thừa. Chỉ giữ lại các từ khóa quan trọng.
+Nếu người dùng viết tên riêng liền nhau (ví dụ: "hoanbucon"), KHÔNG được tách từ, kể cả viết tắt cũng phải để nguyên.
+Nếu câu hỏi mơ hồ, hãy thêm từ khóa gợi ý như "là ai", "tiểu sử", "kết quả", "thông tin", "wiki",… hoặc đơn giản là trả về y nguyên.
+CHỈ trả về duy nhất câu truy vấn, KHÔNG giải thích gì thêm.
+chỉ trả về câu truy vấn tìm kiếm, không nhắc lại câu hỏi.
+Ví dụ:
+- "Dũng CT là ai?" → "Dũng CT"
+- "hoanbucon" → "hoanbucon"
+- "Python vs Java, cái nào nhanh hơn?" → "so sánh tốc độ Python vs Java"
+- "Hôm nay thời tiết Hà Nội thế nào?" → "thời tiết Hà Nội hôm nay"
+- "Ai là tổng thống Mỹ hiện tại?" → "tổng thống Mỹ 2025"
+- "Messi ghi bao nhiêu bàn 2024?" → "Messi số bàn thắng 2024"
+Chỉ trả về kết quả cuối cùng:
+""")
+
+def extract_search_query(question: str) -> str:
+    """
+    Trích xuất truy vấn Google tối ưu, gần giống cách ChatGPT tìm kiếm.
+    """
+    query = (extract_search_query_prompt | model).invoke({"question": question}).strip()
+    return query
+# test
+# if __name__ == "__main__":
+#     while True:
+#         question = input("Nhập câu hỏi: ")
+#         query = is_date_time_intent(question)
+#         print("🔍 Truy vấn tìm kiếm:", query)
