@@ -1,7 +1,9 @@
 from googleapiclient.discovery import build
-
-API_KEY = "AIzaSyAmlVd14Rljkr0nHViDVGcV6nvFY5IJRio"  # Thay bằng API key của bạn
-CX = "e4b955cfcc0304e47"            # Thay bằng CX của bạn
+from dotenv import load_dotenv
+import os
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_API_KEY")
+CX = os.getenv("CX")
 
 def search_web(query: str, num_results: int = 5) -> str:
     """
