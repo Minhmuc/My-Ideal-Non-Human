@@ -9,7 +9,7 @@ from core.prompt_engineering import date_time_response, weather_response,extract
 from core.vectorstore import search_similar, add_texts_to_vectorstore
 from data.Intent_ex import detect_intent
 
-# Prompt template
+
 template = """
 Đây là bạn: {system_prompt}
 Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
@@ -45,6 +45,7 @@ def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> 
 
 
 async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
+
     try:
         # 1. Dùng Intent Detector
         intent = await detect_intent(question)
@@ -56,7 +57,7 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
         elif intent == "weather":
             return weather_response(question, get_weather(extract_location_from_question(question)))
 
-        history = memory.get_history()
+        history = ""
 
         # 3. Tìm trong Vector Store
         vector_results = search_similar(question, k=5)
@@ -79,8 +80,8 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
         if web_info:
             retrieved_info += f"\nThông tin mới tìm kiếm: {web_info.strip()}"
 
-        # 6. Gửi câu hỏi cho LLM
-        answer = ask_llm_with_context(question, history, retrieved_info)
+        # 6. Gửi câu hỏi cho LLM chỉ với retrieved_info từ vectorstore và web
+        answer = ask_llm_with_context(question, "", retrieved_info)
 
         # 7. Nếu LLM không trả lời được → fallback search web
         if not answer.strip() or answer.lower().strip() in ["tôi không biết.", "tôi không rõ."]:
@@ -94,12 +95,9 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
                     "retrieved_info": retrieved_info
                 })
 
-        # 8. Lưu vào memory + vectorstore
-        memory.add("Người dùng", question)
-        memory.add("MINH", answer)
+        # 8. Chỉ lưu vào vectorstore
         qa_pair = f"Người dùng: {question}\nMINH: {answer}"
         add_texts_to_vectorstore([qa_pair])
-
         return answer
 
     except Exception as e:

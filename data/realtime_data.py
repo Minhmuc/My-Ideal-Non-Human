@@ -16,7 +16,7 @@ def get_current_datetime():
     now = datetime.now()
     weekday_en = now.strftime("%A")
     weekday_vi = weekdays_vi.get(weekday_en, weekday_en)
-    date_str = now.strftime(f"{weekday_vi}, %d/%m/%Y – %H:%M")
+    date_str = now.strftime(f"{weekday_vi}, %d/%m/%Y - %H:%M")
     return date_str
 
 WEATHER_CODES = {

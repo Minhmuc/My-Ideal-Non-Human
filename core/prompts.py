@@ -58,7 +58,7 @@ PROMPTS = {
         "Xem lại các câu hỏi và câu trả lời gần đây để tối ưu phản hồi. "
         "Nếu có câu chưa trả lời, hãy tạo câu trả lời hợp lý."
     ),
-    "confirm": "Xin chắc chắn, sếp muốn thực hiện yêu cầu nây kh？",
+    "confirm": "Xin chắc chắn, sếp muốn thực hiện yêu cầu nây không？",
     "reject": "Xin lỗi sếp, tôi không thể thực hiện yêu cầu này.",
     "end": "Đang tắt, hẹn gặp lại sếp...",
     "angry": "Sếp làm tôi hơi khó chịu đó nha. Mong sếp nhẹ nhàng hơn.",

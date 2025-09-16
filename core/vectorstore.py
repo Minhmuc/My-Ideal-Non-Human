@@ -20,14 +20,14 @@ def get_vectorstore():
 
 
 def clean_text_for_storage(text: str) -> str:
-    return text.strip()
+    return text.lower().strip()
 
 
 def add_texts_to_vectorstore(texts: list[str]):
     """
     Lưu nội dung vào vectorstore với timestamp.
     """
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=40)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=50)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cleaned_texts = [clean_text_for_storage(t) for t in texts]
@@ -50,21 +50,25 @@ def add_texts_to_vectorstore(texts: list[str]):
     print(f"✅ Đã thêm {len(documents)} đoạn vào vector store.")
 
 
-def search_similar(query: str, k: int = 5):
+def search_similar(query: str, k: int = 5, score_threshold: float = 0.78):
     vectorstore = get_vectorstore()
     try:
-        # Nếu vectorstore hỗ trợ trả về score
-        results_with_scores = vectorstore.similarity_search_with_score(query, k=k)
-        results_with_scores.sort(
-            key=lambda x: (
-                -x[1],  # similarity score giảm dần
-                x[0].metadata.get("timestamp", "0000")
-            ),
-            reverse=False
-        )
-        return results_with_scores  # [(Document, score), ...]
-    except Exception:
-        # Nếu không hỗ trợ score, trả về Document
-        results = vectorstore.similarity_search(query, k=k)
-        return results  # [Document, ...]
+        results_with_scores = vectorstore.similarity_search_with_score(query, k=k*2)
+        # Lọc tài liệu rác + score thấp
+        filtered_results = []
+        for doc, score in results_with_scores:
+            if score < score_threshold:
+                continue
+            content = doc.page_content.lower()
+            # Bỏ qua câu xin lỗi hoặc nội dung không liên quan
+            if any(bad in content for bad in ["tôi xin lỗi", "i'm sorry", "lỗi khi tìm kiếm"]):
+                continue
+            filtered_results.append((doc, score))
 
+        # Lấy top-k tài liệu tốt nhất
+        return filtered_results[:k] if filtered_results else []
+    except Exception:
+        return vectorstore.similarity_search(query, k=k)
+
+
+# print(search_similar("ming kong là ai?"))

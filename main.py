@@ -1,4 +1,5 @@
 import asyncio
+import time
 from core.llm_interface import ask_llm_with_memory, provide_data_via_chat
 from core.memory import ConversationBufferMemory
 from core.prompt_engineering import exit_intent_confidence
@@ -26,9 +27,12 @@ async def main():
             print(f"🤖 M.I.N.H: {data_response}")
             continue
 
+        start = time.time()
         print("🤖 M.I.N.H đang suy nghĩ...")
         response = await ask_llm_with_memory(user_input, memory) 
+        end = time.time()
         print(f"🤖 M.I.N.H: {response}")
+        print(f"⏳Thời gian xử lý: {end - start:.2f} giây")
 
 if __name__ == "__main__":
     asyncio.run(main())
