@@ -43,8 +43,6 @@ WEATHER_CODES = {
     99: "giông kèm mưa đá mạnh ⚡❄️"
 }
 
-
-
 def get_coords(location: str):
     url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&limit=1"
     res = requests.get(url, headers={"User-Agent": "MINH/1.0"})

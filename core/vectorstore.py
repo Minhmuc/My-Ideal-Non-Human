@@ -4,6 +4,7 @@ from chromadb import PersistentClient
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from datetime import datetime
 import os
+import hashlib
 
 embedding_model = OllamaEmbeddings(model="bge-m3")
 CHROMA_PATH = "db/chroma_db"
@@ -22,32 +23,34 @@ def get_vectorstore():
 def clean_text_for_storage(text: str) -> str:
     return text.lower().strip()
 
-
 def add_texts_to_vectorstore(texts: list[str]):
     """
-    Lưu nội dung vào vectorstore với timestamp.
+    Lưu nội dung vào vectorstore với timestamp, tránh trùng lặp bằng hash id.
     """
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=50)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cleaned_texts = [clean_text_for_storage(t) for t in texts]
     documents = text_splitter.create_documents(
-    cleaned_texts,
-    metadatas=[
-        {
-            "timestamp": now,
-            "type": "chat",
-            "chunk_id": i,
-            "role": "user" if i % 2 == 0 else "assistant"
-        }
-        for i, _ in enumerate(cleaned_texts)
-    ]
-)
+        cleaned_texts,
+        metadatas=[
+            {
+                "timestamp": now,
+                "type": "chat",
+                "chunk_id": i,
+                "role": "user" if i % 2 == 0 else "assistant"
+            }
+            for i, _ in enumerate(cleaned_texts)
+        ]
+    )
 
+    # Tạo id duy nhất từ nội dung
+    ids = [hashlib.md5(doc.page_content.encode("utf-8")).hexdigest() for doc in documents]
 
     vectorstore = get_vectorstore()
-    vectorstore.add_documents(documents)
-    print(f"✅ Đã thêm {len(documents)} đoạn vào vector store.")
+    vectorstore.add_documents(documents, ids=ids)
+    print(f"✅ Đã thêm {len(documents)} đoạn vào vector store (tránh trùng lặp bằng id).")
+
 
 
 def search_similar(query: str, k: int = 5, score_threshold: float = 0.78):

@@ -110,7 +110,7 @@ def is_date_time_intent(question: str) -> bool:
 
 date_time_prompt = PromptTemplate.from_template("""
 Hiện tại là {datetime_info}.
-đây là bạn: {personality} nhiệm vụ của bạn là trả lời câu hỏi liên quan đến date time
+đây là bạn: {personality} nhiệm vụ của bạn là nhiệm vụ của bạn là trả lời đúng ý câu hỏi không cần trả lời hết thông tin
 Câu hỏi: "{question}"
 Trả lời:
 """
@@ -123,7 +123,7 @@ def date_time_response(question: str, datetime_info: str) -> str:
 Weather_info_prompt = PromptTemplate.from_template(
 """
 Thông tin về thời tiết: {weather_info}.
-đây là bạn: {personality} nhiệm vụ của bạn là trả lời câu hỏi liên quan đến thời tiết
+đây là bạn: {personality} nhiệm vụ của bạn là trả lời đúng ý câu hỏi không cần trả lời hết thông tin
 
 Câu hỏi: "{question}"
 Trả lời:
@@ -134,7 +134,6 @@ def weather_response(question: str, weather_info: str) -> str:
     weather_info= get_weather(location=extract_location_from_question(question))
     return (Weather_info_prompt | model).invoke({"weather_info": weather_info, "question": question, "personality": personality})
 
-# Prompt thông minh hơn
 extract_search_query_prompt = PromptTemplate.from_template("""
 Câu hỏi của người dùng: {question}
 Bạn là một công cụ tạo truy vấn tìm kiếm Google tối ưu, nên nhớ bạn không phải công cụ trả lời câu hỏi nên hãy làm đúng nhiệm vụ của mình, không được bịa.

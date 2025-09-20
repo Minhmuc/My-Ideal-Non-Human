@@ -14,6 +14,7 @@ template = """
 Đây là bạn: {system_prompt}
 Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
 Câu hỏi hiện tại: {question}
+Nếu không có đủ thông tin liên quan, hãy trả lời: 'Tôi không biết.' hoặc 'Tôi không rõ.'
 hãy phân tích kỹ và trả lời rõ ràng, chỉ sử dụng thông tin liên quan.
 """
 prompt = ChatPromptTemplate.from_template(template)
