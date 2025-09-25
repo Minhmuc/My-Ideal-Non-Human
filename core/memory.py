@@ -1,3 +1,4 @@
+#fking idiot
 class ConversationBufferMemory:
     def __init__(self):
         self.history = []

@@ -164,7 +164,7 @@ def extract_search_query(question: str) -> str:
     """
     query = (extract_search_query_prompt | model).invoke({"question": question}).strip()
     return query
-# test
+# test sth
 # if __name__ == "__main__":
 #     while True:
 #         question = input("Nhập câu hỏi: ")

@@ -34,3 +34,5 @@ def search_web(query: str, num_results: int = 5) -> str:
 
     except Exception as e:
         return f"❌ Lỗi khi tìm kiếm: {e}"
+    
+# print(search_web("hoanbucon"))  #test ham tim kiem

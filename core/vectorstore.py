@@ -32,17 +32,10 @@ def add_texts_to_vectorstore(texts: list[str]):
 
     cleaned_texts = [clean_text_for_storage(t) for t in texts]
     documents = text_splitter.create_documents(
-        cleaned_texts,
-        metadatas=[
-            {
-                "timestamp": now,
-                "type": "chat",
-                "chunk_id": i,
-                "role": "user" if i % 2 == 0 else "assistant"
-            }
-            for i, _ in enumerate(cleaned_texts)
-        ]
-    )
+    cleaned_texts,
+    metadatas=[{"timestamp": now, "type": "chat", "chunk_id": i} for i, _ in enumerate(cleaned_texts)]
+)
+
 
     # Tạo id duy nhất từ nội dung
     ids = [hashlib.md5(doc.page_content.encode("utf-8")).hexdigest() for doc in documents]
@@ -51,16 +44,15 @@ def add_texts_to_vectorstore(texts: list[str]):
     vectorstore.add_documents(documents, ids=ids)
     print(f"✅ Đã thêm {len(documents)} đoạn vào vector store (tránh trùng lặp bằng id).")
 
-
-
-def search_similar(query: str, k: int = 5, score_threshold: float = 0.78):
+def search_similar(query: str, k: int = 5, score_threshold: float = 1):
     vectorstore = get_vectorstore()
     try:
         results_with_scores = vectorstore.similarity_search_with_score(query, k=k*2)
         # Lọc tài liệu rác + score thấp
         filtered_results = []
         for doc, score in results_with_scores:
-            if score < score_threshold:
+            # [0,2] càng gần 0 càng giống
+            if score > score_threshold:
                 continue
             content = doc.page_content.lower()
             # Bỏ qua câu xin lỗi hoặc nội dung không liên quan
@@ -73,5 +65,4 @@ def search_similar(query: str, k: int = 5, score_threshold: float = 0.78):
     except Exception:
         return vectorstore.similarity_search(query, k=k)
 
-
-# print(search_similar("ming kong là ai?"))
+# print(search_similar("ming king"))  # test hàm tìm kiếm

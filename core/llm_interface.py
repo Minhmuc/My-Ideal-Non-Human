@@ -1,7 +1,6 @@
 from core.models import model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from core.memory import ConversationBufferMemory
 from core.prompts import get_prompt
 from core.webSearch import search_web
 from data.realtime_data import get_current_datetime, get_weather
@@ -21,31 +20,27 @@ prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
 
 
-def ask_llm_with_context(question: str, history: str = "", retrieved_info: str = "") -> str:
+def ask_llm_with_context(question: str, retrieved_info: str = "") -> str:
     """Hỏi LLM kèm ngữ cảnh từ web và vectorstore."""
     return chain.invoke({
         "system_prompt": get_prompt("system"),
         "question": question,
-        "history": history,
         "retrieved_info": retrieved_info
     })
 
 
-def provide_data_via_chat(user_input: str, memory: ConversationBufferMemory) -> str:
+def provide_data_via_chat(user_input: str) -> str:
     """Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat."""
     if user_input.lower().startswith(('dữ liệu:', 'data:')):
         data_content = user_input.split(':', 1)[-1].strip()
         if data_content:
             add_texts_to_vectorstore([f"Dữ liệu người dùng: {data_content}"])
-            memory.add("Người dùng", user_input)
-            memory.add("MINH", "Đã lưu dữ liệu của sếp vào hệ thống. Sếp có thể hỏi lại bất cứ lúc nào!")
             return "Đã lưu dữ liệu của sếp vào hệ thống. Sếp có thể hỏi lại bất cứ lúc nào!"
         else:
             return "Sếp cần nhập nội dung dữ liệu sau 'dữ liệu:' hoặc 'data:' nhé!"
     return None
-
-
-async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -> str:
+# Không dùng ConversationBufferMemory nữa, chỉ dùng vectorstore
+async def ask_llm_with_memory(question: str) -> str:
 
     try:
         # 1. Dùng Intent Detector
@@ -57,8 +52,6 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
             return date_time_response(question, get_current_datetime())
         elif intent == "weather":
             return weather_response(question, get_weather(extract_location_from_question(question)))
-
-        history = ""
 
         # 3. Tìm trong Vector Store
         vector_results = search_similar(question, k=5)
@@ -82,7 +75,7 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
             retrieved_info += f"\nThông tin mới tìm kiếm: {web_info.strip()}"
 
         # 6. Gửi câu hỏi cho LLM chỉ với retrieved_info từ vectorstore và web
-        answer = ask_llm_with_context(question, "", retrieved_info)
+        answer = ask_llm_with_context(question,  retrieved_info)
 
         # 7. Nếu LLM không trả lời được → fallback search web
         if not answer.strip() or answer.lower().strip() in ["tôi không biết.", "tôi không rõ."]:
@@ -92,7 +85,6 @@ async def ask_llm_with_memory(question: str, memory: ConversationBufferMemory) -
                 answer = chain.invoke({
                     "system_prompt": get_prompt("system"),
                     "question": question,
-                    "history": history,
                     "retrieved_info": retrieved_info
                 })
 

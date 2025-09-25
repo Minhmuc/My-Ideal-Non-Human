@@ -26,7 +26,7 @@ PROMPTS = {
         "M.I.N.H online! Lệnh sếp là chân lý."
     ),
     "plan": (
-        "1. Tạo mô hình LLM tên 'llama3.1:8b'.\n"
+        "1. Tạo mô hình LLM tên 'MinhEgoNoob'.\n"
         "2. Huấn luyện với tập dữ liệu phù hợp.\n"
         "3. Tạo API giao tiếp.\n"
         "4. Làm giao diện người dùng đơn giản.\n"
@@ -70,7 +70,7 @@ PROMPTS = {
     ),
     "web_search": (
         "Nếu câu hỏi của người dùng liên quan đến sự kiện mới, thời tiết, tin tức hoặc thông tin hiện tại, "
-        "hãy tìm kiếm thông tin từ web bằng DuckDuckGo và trình bày lại một cách chi tiết, dễ hiểu. "
+        "hãy tìm kiếm thông tin từ web bằng google và trình bày lại một cách chi tiết, dễ hiểu. "
         "Nếu không thể tìm thấy, hãy thông báo điều đó."
     ),
     "confirm_exit":(
