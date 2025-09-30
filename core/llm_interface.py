@@ -8,7 +8,6 @@ from core.prompt_engineering import date_time_response, weather_response,extract
 from core.vectorstore import search_similar, add_texts_to_vectorstore
 from data.Intent_ex import detect_intent
 
-
 template = """
 Đây là bạn: {system_prompt}
 Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
@@ -19,7 +18,6 @@ hãy phân tích kỹ và trả lời rõ ràng, chỉ sử dụng thông tin li
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
 
-
 def ask_llm_with_context(question: str, retrieved_info: str = "") -> str:
     """Hỏi LLM kèm ngữ cảnh từ web và vectorstore."""
     return chain.invoke({
@@ -27,7 +25,6 @@ def ask_llm_with_context(question: str, retrieved_info: str = "") -> str:
         "question": question,
         "retrieved_info": retrieved_info
     })
-
 
 def provide_data_via_chat(user_input: str) -> str:
     """Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat."""

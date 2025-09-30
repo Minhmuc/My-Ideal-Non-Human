@@ -13,6 +13,8 @@ Nhiệm vụ: Phân loại câu hỏi dưới đây thành đúng MỘT trong 4 
 - "weather" → hỏi về thời tiết, nhiệt độ, mưa, nắng, bão, dự báo.
 - "search" → yêu cầu tra cứu thông tin trên Google hoặc web.
 - "normal" → tất cả trường hợp còn lại.
+**Lưu ý quan trọng:**
+- Chỉ trả về DUY NHẤT một trong bốn từ khóa trên.
 
 Câu hỏi: "{question}"
 
@@ -32,6 +34,7 @@ Câu hỏi: "{question}"
 - "Ngày mai tôi có bận không?" → normal
 - "bây giờ là mấy giờ?" → datetime
 - "bây giờ có nắng không?" → weather
+- "tôi muốn biết về AI" → search
 Chỉ trả về JSON hợp lệ theo định dạng:
 {{"intent": "<datetime|weather|search|normal>"}}
 """)
@@ -60,8 +63,6 @@ async def detect_intent(question: str):
     except Exception as e:
         print(f"[Intent Detector] Lỗi: {e}")
         return "normal"
-
-
 # async def main():
 #     while True:
 #         test = input("Nhập câu hỏi: ")
