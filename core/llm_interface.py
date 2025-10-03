@@ -9,7 +9,6 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 from data.Intent_ex import detect_intent
 
 template = """
-Đây là bạn: {system_prompt}
 Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
 Câu hỏi hiện tại: {question}
 Nếu không có đủ thông tin liên quan, hãy trả lời: 'Tôi không biết.' hoặc 'Tôi không rõ.'

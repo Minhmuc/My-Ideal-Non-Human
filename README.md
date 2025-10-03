@@ -51,9 +51,9 @@ python main.py
 - **APIs**: Add or adjust API keys/settings in `data/realtime_data.py`.  
 
 ## 📌 Roadmap  
-- [x] Conversational core with memory  
-- [x] Real-time weather & datetime  
-- [x] Vector search integration  
+- ✔️ Conversational core with memory  
+- ✔️ Real-time weather & datetime  
+- ✔️ Vector search integration  
 - [ ] Real-time computer autopilot  
 - [ ] Speech-to-Text & Text-to-Speech  
 - [ ] Graphical interface  
@@ -62,4 +62,4 @@ python main.py
 Pull requests and suggestions are welcome. Feel free to fork and extend MINH with your own personality and tools.  
 
 ## 📜 License  
-This project is licensed under the MIT License.  
+This project is licensed under the MIT License.
