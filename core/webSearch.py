@@ -2,8 +2,8 @@ from googleapiclient.discovery import build
 from dotenv import load_dotenv
 import os
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")
-CX = os.getenv("CX")
+API_KEY = os.getenv("GOOGLE_API_KEY") #  API key 
+CX = os.getenv("CX") #  Custom Search Engine ID
 
 def search_web(query: str, num_results: int = 5) -> str:
     """
