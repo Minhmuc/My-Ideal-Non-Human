@@ -9,10 +9,14 @@ from core.vectorstore import search_similar, add_texts_to_vectorstore
 from data.Intent_ex import detect_intent
 
 template = """
-Dữ liệu liên quan từ hệ thống và tra trên google: {retrieved_info}
-Câu hỏi hiện tại: {question}
-Nếu không có đủ thông tin liên quan, hãy trả lời: 'Tôi không biết.' hoặc 'Tôi không rõ.'
-hãy phân tích kỹ và trả lời rõ ràng, chỉ sử dụng thông tin liên quan.
+Dữ liệu tham khảo: {retrieved_info}
+
+Câu hỏi: {question}
+
+Hãy trả lời câu hỏi một cách TỰ NHIÊN và TRỰC TIẾP như thể bạn đang biết thông tin đó.
+KHÔNG được nhắc đến "tìm trên web", "tra cứu", "theo thông tin" hay bất kỳ nguồn nào trừ khi người dùng HỎI NGUỒN.
+Chỉ trả lời nội dung chính, ngắn gọn và rõ ràng.
+Nếu không có đủ thông tin, chỉ nói: "Tôi không biết."
 """
 prompt = ChatPromptTemplate.from_template(template)
 chain: Runnable = prompt | model
@@ -30,7 +34,7 @@ def provide_data_via_chat(user_input: str) -> str:
     if user_input.lower().startswith(('dữ liệu:', 'data:')):
         data_content = user_input.split(':', 1)[-1].strip()
         if data_content:
-            add_texts_to_vectorstore([f"Dữ liệu người dùng: {data_content}"])
+            add_texts_to_vectorstore([f"{data_content}"])
             return "Đã lưu dữ liệu của sếp vào hệ thống. Sếp có thể hỏi lại bất cứ lúc nào!"
         else:
             return "Sếp cần nhập nội dung dữ liệu sau 'dữ liệu:' hoặc 'data:' nhé!"
@@ -74,12 +78,30 @@ async def ask_llm_with_memory(question: str) -> str:
         answer = ask_llm_with_context(question,  retrieved_info)
 
         # 7. Nếu LLM không trả lời được → fallback search web
-        if not answer.strip() or answer.lower().strip() in ["tôi không biết.", "tôi không rõ."]:
+        if not answer.strip() or any(phrase in answer.lower().strip() for phrase in ["tôi không biết", "tôi không rõ", "không có thông tin"]):
             if not web_info:
-                web_info = search_web(question)
-                retrieved_info = f"{vector_info}\n{web_info}".strip()
-                answer = chain.invoke({
-                    "system_prompt": get_prompt("system"),
+                # Cải thiện query trước khi search
+                search_query = extract_search_query(question) if extract_search_query(question) else question
+                print(f"[Fallback Search] Searching for: {search_query}")
+                web_info = search_web(search_query)
+                retrieved_info = f"{vector_info}\n\nThông tin tìm kiếm từ web:\n{web_info}".strip()
+                
+                # Retry với prompt rõ ràng hơn
+                fallback_template = """
+Dựa trên thông tin bên dưới, hãy trả lời câu hỏi một cách TỰ NHIÊN như thể bạn đang biết.
+KHÔNG được nhắc "tìm trên web", "tra cứu", hay bất kỳ nguồn nào.
+Chỉ trả lời nội dung trực tiếp, ngắn gọn và chính xác.
+
+Thông tin tham khảo:
+{retrieved_info}
+
+Câu hỏi: {question}
+
+Trả lời:
+"""
+                fallback_prompt = ChatPromptTemplate.from_template(fallback_template)
+                fallback_chain = fallback_prompt | model
+                answer = fallback_chain.invoke({
                     "question": question,
                     "retrieved_info": retrieved_info
                 })

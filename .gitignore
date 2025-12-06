@@ -6,3 +6,6 @@ __pycache__/
 models/
 checkpoints/
 clean.py
+node_modules
+
+test_search.py

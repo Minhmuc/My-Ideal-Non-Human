@@ -155,7 +155,7 @@ Ví dụ:
 - "Hôm nay thời tiết Hà Nội thế nào?" → "thời tiết Hà Nội hôm nay"
 - "Ai là tổng thống Mỹ hiện tại?" → "tổng thống Mỹ 2025"
 - "Messi ghi bao nhiêu bàn 2024?" → "Messi số bàn thắng 2024"
-Chỉ trả về kết quả cuối cùng:
+Chỉ trả về một kết quả cuối cùng:
 """)
 
 def extract_search_query(question: str) -> str:

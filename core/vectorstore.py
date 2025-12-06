@@ -65,4 +65,4 @@ def search_similar(query: str, k: int = 5, score_threshold: float = 1):
     except Exception:
         return vectorstore.similarity_search(query, k=k)
 
-# print(search_similar("ba que khát nước"))  # test hàm tìm kiếm
+# print(search_similar("biết ming king là ai không?"))  # test hàm tìm kiếm
