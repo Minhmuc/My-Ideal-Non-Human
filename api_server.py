@@ -3,8 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
 import time
+import sys
+import io
 from core.llm_interface import ask_llm_with_memory, provide_data_via_chat
 from utils.tools import ensure_ollama_running
+
+# Enable UTF-8 for console output (supports emoji and Vietnamese)
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 app = FastAPI()
 

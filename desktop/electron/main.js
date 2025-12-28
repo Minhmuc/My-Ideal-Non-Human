@@ -40,10 +40,10 @@ app.on('window-all-closed', function () {
 ipcMain.handle('start-python', async () => {
   if (pythonProcess) return { ok: true, pid: pythonProcess.pid }
   
-  // Use conda environment python - change this to your environment name
-  const condaEnv = 'MINH-noob'  // Changed from 'minh-ai' to 'MINH-noob'
-  const condaPython = path.join(process.env.USERPROFILE, 'anaconda3', 'envs', condaEnv, 'python.exe')
-  const pyPath = condaPython
+  // Use .venv environment python
+  const projectRoot = path.join(__dirname, '..', '..')
+  const venvPython = path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+  const pyPath = venvPython
   
   console.log('Starting Python with:', pyPath)
   
