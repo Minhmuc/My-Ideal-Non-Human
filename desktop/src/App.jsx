@@ -243,10 +243,10 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={startBackend} className="px-3 py-1 bg-cyan-500 text-white rounded text-sm hover:bg-cyan-600">
-            Button Here!
+            🚀 Start Backend
           </button>
           <button className="px-3 py-1 bg-transparent border border-slate-700 rounded text-sm hover:bg-slate-800">
-            Cài đặt
+            ⚙️ Cài đặt
           </button>
         </div>
       </header>

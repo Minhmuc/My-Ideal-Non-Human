@@ -5,8 +5,7 @@ import asyncio
 import time
 import sys
 import io
-from core.llm_interface import ask_llm_with_memory, provide_data_via_chat
-from utils.tools import ensure_ollama_running
+from core.llm_interface_simple import ask_llm_with_memory, provide_data_via_chat
 
 # Enable UTF-8 for console output (supports emoji and Vietnamese)
 if sys.platform == 'win32':
@@ -35,11 +34,9 @@ class ChatResponse(BaseModel):
 async def startup_event():
     """Initialize on server startup"""
     print("🚀 Starting MINH API Server...")
-    ollama_ok = ensure_ollama_running()
-    if ollama_ok:
-        print("✅ Ollama: started successfully")
-    else:
-        print("⚠️ Ollama không khả dụng. Một số tính năng embedding có thể không hoạt động.")
+    print("⏳ Model sẽ được load khi có request đầu tiên (lazy loading)")
+    print("✅ Server ready at http://127.0.0.1:8000")
+    # Note: Model loaded on first request to save startup time
 
 @app.get("/")
 async def root():

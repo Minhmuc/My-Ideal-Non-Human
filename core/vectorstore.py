@@ -1,12 +1,20 @@
-from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from chromadb import PersistentClient
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from datetime import datetime
 import os
 import hashlib
 
-embedding_model = OllamaEmbeddings(model="bge-m3")
+# Sử dụng Hugging Face embeddings thay vì Ollama
+# BGE-M3: Multilingual embedding model, xuất sắc cho tiếng Việt
+print("🤖 Loading BGE-M3 embedding model...")
+embedding_model = HuggingFaceEmbeddings(
+    model_name="BAAI/bge-m3",
+    model_kwargs={'device': 'cpu'},  # Dùng CPU cho embeddings, GPU dành cho LLM
+    encode_kwargs={'normalize_embeddings': True}
+)
+print("✅ BGE-M3 embedding model loaded!")
 CHROMA_PATH = "db/chroma_db"
 os.makedirs(CHROMA_PATH, exist_ok=True)
 

@@ -1,4 +1,4 @@
-from core.models import model
+from core.models import model, hf_model, tokenizer
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from core.prompts import get_prompt
@@ -8,26 +8,46 @@ from core.prompt_engineering import date_time_response, weather_response,extract
 from core.vectorstore import search_similar, add_texts_to_vectorstore
 from data.Intent_ex import detect_intent
 
-template = """
-Dữ liệu tham khảo: {retrieved_info}
-
-Câu hỏi: {question}
-
-Hãy trả lời câu hỏi một cách TỰ NHIÊN và TRỰC TIẾP như thể bạn đang biết thông tin đó.
-KHÔNG được nhắc đến "tìm trên web", "tra cứu", "theo thông tin" hay bất kỳ nguồn nào trừ khi người dùng HỎI NGUỒN.
-Chỉ trả lời nội dung chính, ngắn gọn và rõ ràng.
-Nếu không có đủ thông tin, chỉ nói: "Tôi không biết."
-"""
-prompt = ChatPromptTemplate.from_template(template)
-chain: Runnable = prompt | model
-
 def ask_llm_with_context(question: str, retrieved_info: str = "") -> str:
-    """Hỏi LLM kèm ngữ cảnh từ web và vectorstore."""
-    return chain.invoke({
-        "system_prompt": get_prompt("system"),
-        "question": question,
-        "retrieved_info": retrieved_info
-    })
+    """Hỏi LLM kèm ngữ cảnh từ web và vectorstore - Direct generation."""
+    
+    # Build prompt trực tiếp
+    system_msg = """Bạn là MINH - trợ lý AI thông minh, thân thiện của sếp.
+Trả lời NGẮN GỌN (2-3 câu), TỰ NHIÊN như con người.
+KHÔNG giải thích process, KHÔNG nhắc "tìm kiếm" hay "tra cứu"."""
+    
+    if retrieved_info:
+        prompt = f"{system_msg}\n\nThông tin tham khảo:\n{retrieved_info}\n\nCâu hỏi: {question}\n\nTrả lời:"
+    else:
+        prompt = f"{system_msg}\n\nCâu hỏi: {question}\n\nTrả lời:"
+    
+    # Generate với tokenizer trực tiếp
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": question if not retrieved_info else f"Dựa vào: {retrieved_info}\n\nCâu hỏi: {question}"}
+    ]
+    
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+    
+    inputs = tokenizer([text], return_tensors="pt").to(hf_model.device)
+    
+    outputs = hf_model.generate(
+        **inputs,
+        max_new_tokens=200,
+        temperature=0.8,
+        top_p=0.85,
+        repetition_penalty=1.15,
+        do_sample=True,
+        pad_token_id=tokenizer.eos_token_id,
+        eos_token_id=tokenizer.eos_token_id
+    )
+    
+    response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
+    return response.strip()
 
 def provide_data_via_chat(user_input: str) -> str:
     """Cho phép người dùng cung cấp dữ liệu trực tiếp qua chat."""
