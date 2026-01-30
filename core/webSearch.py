@@ -2,92 +2,40 @@ from googleapiclient.discovery import build
 from dotenv import load_dotenv
 import os
 import requests
-from typing import Optional
+import asyncio
+from typing import Optional, List, Tuple
 
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY") #  API key 
 CX = os.getenv("CX") #  Custom Search Engine ID
-BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")  # Brave Search API (optional)
-
-def search_brave(query: str, num_results: int = 5) -> Optional[str]:
-    """
-    Tìm kiếm qua Brave Search API (miễn phí 2000 queries/tháng)
-    Đăng ký tại: https://brave.com/search/api/
-    """
-    try:
-        if not BRAVE_API_KEY:
-            print("[Brave Search] API key not configured")
-            return None
-            
-        url = "https://api.search.brave.com/res/v1/web/search"
-        headers = {
-            "Accept": "application/json",
-            "X-Subscription-Token": BRAVE_API_KEY
-        }
-        params = {
-            "q": query,
-            "count": num_results,
-            "country": "VN",
-            "search_lang": "vi"
-        }
-        
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        
-        if response.status_code != 200:
-            print(f"[Brave Search] Status: {response.status_code}")
-            return None
-            
-        data = response.json()
-        results = []
-        
-        # Web results
-        for item in data.get("web", {}).get("results", [])[:num_results]:
-            title = item.get("title", "")
-            description = item.get("description", "")
-            url = item.get("url", "")
-            if title and description:
-                results.append(f"📌 {title}\n{description}\n🔗 {url}")
-        
-        print(f"[Brave Search] Found {len(results)} results")
-        return "\n\n".join(results) if results else None
-        
-    except Exception as e:
-        print(f"[Brave Search Error] {e}")
-        return None
 
 def search_duckduckgo(query: str, num_results: int = 5) -> Optional[str]:
     """
-    Tìm kiếm qua DuckDuckGo API (miễn phí, không cần API key)
+    Tìm kiếm qua DuckDuckGo sử dụng thư viện ddgs
+    Không cần API key, lấy kết quả thực từ web
     """
     try:
-        url = "https://api.duckduckgo.com/"
-        params = {
-            "q": query,
-            "format": "json",
-            "no_html": 1,
-            "skip_disambig": 1
-        }
-        response = requests.get(url, params=params, timeout=5)
-        data = response.json()
+        from ddgs import DDGS
         
         results = []
+        with DDGS() as ddgs:
+            search_results = ddgs.text(query, max_results=num_results, region='vn-vi')
+            
+            for item in search_results:
+                title = item.get('title', '')
+                body = item.get('body', '')
+                href = item.get('href', '')
+                
+                if title and body:
+                    results.append(f"📌 {title}\n{body}\n🔗 {href}")
         
-        # Abstract (câu trả lời trực tiếp)
-        if data.get("Abstract"):
-            results.append(f"📌 {data.get('Heading', 'Thông tin')}\n{data['Abstract']}")
-        
-        # Related Topics
-        for topic in data.get("RelatedTopics", [])[:num_results]:
-            if isinstance(topic, dict) and "Text" in topic:
-                text = topic.get("Text", "")
-                url = topic.get("FirstURL", "")
-                if text:
-                    results.append(f"📌 {text}\n🔗 {url}")
-        
+        print(f"[DuckDuckGo] Found {len(results)} results")
         return "\n\n".join(results) if results else None
         
     except Exception as e:
         print(f"[DuckDuckGo Search Error] {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def search_google(query: str, num_results: int = 5) -> Optional[str]:
@@ -130,35 +78,76 @@ def search_google(query: str, num_results: int = 5) -> Optional[str]:
         traceback.print_exc()
         return None
 
-def search_web(query: str, num_results: int = 5) -> str:
+async def search_web_async(query: str, num_results: int = 5) -> str:
     """
-    Tìm kiếm web với multiple engines và fallback
-    Thử theo thứ tự: Google → Brave → DuckDuckGo → Fallback message
+    Async version: Tìm kiếm web với multiple engines ĐỒNG THỜI
+    Query cùng lúc: Google + DuckDuckGo
     """
-    print(f"\n[WebSearch] Starting search for: '{query}'")
+    print(f"\n[WebSearch] Starting parallel search for: '{query}'")
     
-    # Try Google first (nếu có API key)
-    google_result = search_google(query, num_results)
-    if google_result:
-        print("[WebSearch] ✅ Google successful")
-        return google_result
+    # Create tasks for parallel execution
+    async def google_wrapper():
+        # Run sync function in thread pool
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, search_google, query, num_results)
+        return ("Google", result)
     
-    # Fallback to Brave Search
-    print("[WebSearch] Google failed, trying Brave Search...")
-    brave_result = search_brave(query, num_results)
-    if brave_result:
-        print("[WebSearch] ✅ Brave successful")
-        return brave_result
+    async def ddg_wrapper():
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, search_duckduckgo, query, num_results)
+        return ("DuckDuckGo", result)
     
-    # Fallback to DuckDuckGo
-    print("[WebSearch] Brave failed, trying DuckDuckGo...")
-    ddg_result = search_duckduckgo(query, num_results)
-    if ddg_result:
-        print("[WebSearch] ✅ DuckDuckGo successful")
-        return ddg_result
+    # Wait for all searches to complete
+    search_results = await asyncio.gather(
+        google_wrapper(),
+        ddg_wrapper(),
+        return_exceptions=True
+    )
     
-    # Last resort: simple web search message
+    # Combine results from all sources
+    combined_results = []
+    successful_sources = []
+    
+    for result in search_results:
+        if isinstance(result, Exception):
+            print(f"[WebSearch] Search failed with exception: {result}")
+            continue
+        source, data = result
+        if data:
+            combined_results.append(f"### 🔍 Nguồn: {source}\n{data}")
+            successful_sources.append(source)
+            print(f"[WebSearch] ✅ {source} successful")
+        else:
+            print(f"[WebSearch] {source} returned no results")
+    
+    # Return combined results or fallback
+    if combined_results:
+        print(f"[WebSearch] ✅ Combined results from: {', '.join(successful_sources)}")
+        return "\n\n" + "="*50 + "\n\n".join(combined_results)
+    
+    # Last resort
     print("[WebSearch] ❌ All search engines failed")
     return f"⚠️ Tôi không tìm thấy thông tin về '{query}' trên web. Sếp có thể thử hỏi theo cách khác hoặc cung cấp thêm chi tiết không?"
+
+
+def search_web(query: str, num_results: int = 5) -> str:
+    """
+    Sync wrapper for search_web_async
+    Tìm kiếm web với Google + DuckDuckGo ĐỒNG THỜI
+    """
+    try:
+        # Try to get running loop
+        loop = asyncio.get_running_loop()
+        # We're already in async context - create a task
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(
+                asyncio.run,
+                search_web_async(query, num_results)
+            )
+            return future.result()
+    except RuntimeError:
+        # No running loop - safe to use asyncio.run()
+        return asyncio.run(search_web_async(query, num_results))
     
 # print(search_web("hoanbucon"))  #test ham tim kiem

@@ -5,7 +5,8 @@ import asyncio
 import time
 import sys
 import io
-from core.llm_interface_simple import ask_llm_with_memory, provide_data_via_chat
+from core.llm_interface import ask_llm_with_memory
+from core.agents.streaming_agent import streaming_agent
 
 # Enable UTF-8 for console output (supports emoji and Vietnamese)
 if sys.platform == 'win32':
@@ -47,13 +48,7 @@ async def chat(request: ChatRequest):
     """Standard chat endpoint - returns full response"""
     start = time.time()
     
-    # Check if user is providing data
-    data_response = provide_data_via_chat(request.message)
-    if data_response:
-        end = time.time()
-        return ChatResponse(response=data_response, processing_time=end - start)
-    
-    # Get LLM response
+    # Use AI Agent (no more hardcode!)
     response = await ask_llm_with_memory(request.message)
     end = time.time()
     
@@ -61,7 +56,7 @@ async def chat(request: ChatRequest):
 
 @app.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
-    """WebSocket endpoint for streaming responses"""
+    """WebSocket endpoint for streaming responses - Now with real-time AI Agent progress!"""
     await websocket.accept()
     
     try:
@@ -73,31 +68,18 @@ async def websocket_chat(websocket: WebSocket):
             if not message:
                 continue
             
-            # Send status: processing
-            await websocket.send_json({"type": "status", "status": "processing"})
-            
-            # Check if user is providing data
-            data_response = provide_data_via_chat(message)
-            if data_response:
-                # Send complete response for data provision
-                await websocket.send_json({
-                    "type": "complete",
-                    "response": data_response
-                })
-                continue
-            
-            # Get LLM response
+            # Stream AI Agent progress real-time
             start = time.time()
-            response = await ask_llm_with_memory(message)
-            end = time.time()
             
-            # Stream response character by character
-            for char in response:
+            async for update in streaming_agent.process_stream(message):
+                # Send each progress update
                 await websocket.send_json({
                     "type": "chunk",
-                    "chunk": char
+                    "chunk": update + "\n"
                 })
-                await asyncio.sleep(0.03)  # 30ms delay to match frontend
+                await asyncio.sleep(0.01)  # Small delay for smooth streaming
+            
+            end = time.time()
             
             # Send completion signal
             await websocket.send_json({
@@ -109,6 +91,8 @@ async def websocket_chat(websocket: WebSocket):
         print("Client disconnected")
     except Exception as e:
         print(f"WebSocket error: {e}")
+        import traceback
+        traceback.print_exc()
         await websocket.close()
 
 @app.get("/health")

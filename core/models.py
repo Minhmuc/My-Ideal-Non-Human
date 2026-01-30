@@ -11,10 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config.model_config import MINH_SYSTEM_PROMPT, GENERATION_CONFIG
 
 # star pls!
-print("🤖 Loading Qwen2.5-7B-Instruct model (4-bit optimized for 6GB VRAM)...")
+print("🤖 Loading Llama 3.1 8B Instruct model (4-bit optimized for 6GB VRAM)...")
 print("⏳ First load takes 3-5 minutes. Please wait...")
 
-# Model 7B cho responses tốt hơn
+# Qwen 2.5 7B cho responses tốt hơn
 model_name = "Qwen/Qwen2.5-7B-Instruct"
 
 # Cấu hình 4-bit quantization tối ưu
@@ -48,8 +48,16 @@ class MINHModel:
         self.system_prompt = system_prompt
         self.device = base_model.device
         
-    def generate(self, user_message: str, context: str = "", tools: list = None) -> str:
-        """Generate với system prompt tự động - hỗ trợ function calling"""
+    def generate(self, user_message: str, context: str = "", tools: list = None, max_new_tokens: int = None) -> str:
+        """
+        Generate với system prompt tự động - hỗ trợ function calling
+        
+        Args:
+            user_message: User's question/command
+            context: Additional context information
+            tools: Optional function calling tools
+            max_new_tokens: Override default max_new_tokens (None = use config default)
+        """
         if context:
             user_content = f"Thông tin: {context}\n\nCâu hỏi: {user_message}"
         else:
@@ -77,9 +85,14 @@ class MINHModel:
         
         inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
         
+        # Override max_new_tokens if specified
+        gen_config = GENERATION_CONFIG.copy()
+        if max_new_tokens is not None:
+            gen_config['max_new_tokens'] = max_new_tokens
+        
         outputs = self.model.generate(
             **inputs,
-            **GENERATION_CONFIG,
+            **gen_config,
             pad_token_id=self.tokenizer.eos_token_id,
             eos_token_id=self.tokenizer.eos_token_id
         )
@@ -88,12 +101,20 @@ class MINHModel:
         
         # Post-process: Clean up response
         import re
+        
+        # Remove "Human:" prefixes and everything after (common Qwen artifact)
+        response = re.sub(r'Human:.*$', '', response, flags=re.MULTILINE)
+        
+        # Remove Chinese punctuation artifacts
+        response = re.sub(r'[（）【】]+', '', response)
+        
+        # Only remove Chinese if it's a continuous block (3+ chars)
+        # This preserves Vietnamese names with Chinese-origin characters
+        # But removes accidental Chinese text outputs
+        response = re.sub(r'[\u4e00-\u9fff]{3,}', '', response)
+        
         # Remove role prefixes like [minh]:, [MINH]:, minh:, etc.
         response = re.sub(r'^\s*\[?\s*minh\s*\]?\s*:\s*', '', response, flags=re.IGNORECASE)
-        # Remove Chinese characters và các dấu ngoặc đơn/Chinese punctuation thừa
-        response = re.sub(r'[\u4e00-\u9fff\u3000-\u303f]+', '', response)
-        response = re.sub(r'[（）【】]+', '', response)  # Remove Chinese brackets
-        response = response.replace('！', '!').replace('？', '?')  # Replace fullwidth to halfwidth
         
         return response.strip()
 
@@ -105,7 +126,7 @@ pipe = pipeline(
     "text-generation",
     model=hf_model,
     tokenizer=tokenizer,
-    max_new_tokens=256,  # Giảm để tránh responses quá dài
+    max_new_tokens=512,  # Giảm để tránh responses quá dài
     temperature=0.8,  # Tăng một chút cho tự nhiên hơn
     top_p=0.85,
     repetition_penalty=1.15,  # Tăng để tránh lặp lại
@@ -125,3 +146,5 @@ print(f"🎭 System Prompt: Loaded from config/model_config.py (Modelfile-style)
 
 # Export để dùng trực tiếp
 __all__ = ['model', 'hf_model', 'tokenizer', 'pipe', 'minh_model']
+
+#STAR PLS!

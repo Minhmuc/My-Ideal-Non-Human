@@ -1,6 +1,6 @@
 import asyncio
 import time
-from core.llm_interface_simple import ask_llm_with_memory, provide_data_via_chat
+from core.llm_interface import ask_llm_with_memory, provide_data_via_chat
 from core.prompts import get_prompt, exit_prompt, get_greeting
 
 async def main():

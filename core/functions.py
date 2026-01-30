@@ -4,7 +4,7 @@ Function calling definitions for MINH - ChatGPT style
 import json
 from typing import List, Dict, Any
 from data.realtime_data import get_current_datetime, get_weather
-from core.webSearch import search_duckduckgo
+from core.webSearch import search_web
 
 # Define available functions
 FUNCTIONS = [
@@ -70,10 +70,9 @@ def execute_function(function_name: str, arguments: Dict[str, Any]) -> str:
             query = arguments.get("query", "")
             if not query:
                 return "Error: Missing search query"
-            results = search_duckduckgo(query, max_results=3)
-            if results:
-                return "\n\n".join([f"- {r}" for r in results])
-            return "Không tìm thấy kết quả phù hợp."
+            # Sử dụng search_web với fallback: Google → Brave → DuckDuckGo
+            results = search_web(query, num_results=3)
+            return results
         
         else:
             return f"Error: Unknown function {function_name}"

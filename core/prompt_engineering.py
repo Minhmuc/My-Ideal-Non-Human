@@ -1,6 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate,PromptTemplate
 from core.prompts import get_prompt
-from core.models import model
+from core.models import model, minh_model
 from data.realtime_data import get_current_datetime, get_weather
 
 
@@ -67,15 +67,44 @@ Trả lời:
 def is_weather_intent(question: str) -> bool:
     return "có" in (weather_intent_prompt | model).invoke({"question": question}).lower()
 
-extract_location_prompt = PromptTemplate.from_template(
-    "Câu hỏi: {question}\n"
-    "Địa điểm được nhắc tới trong câu hỏi là gì? chỉ trả lời chính xác tên địa điểm. Nếu không có thì trả lời chính xác 'không có' không trả lời thêm."
-)
-
-extract_location_chain = extract_location_prompt | model
-
 def extract_location_from_question(question: str) -> str:
-    location = extract_location_chain.invoke({"question": question}).strip()
+    """
+    Trích xuất tên địa điểm từ câu hỏi.
+    Sử dụng minh_model với max_new_tokens thấp để chỉ trả tên địa điểm.
+    """
+    prompt_text = f"""Câu hỏi: {question}
+Địa điểm được nhắc tới là gì? CHỈ trả lời tên địa điểm, không giải thích.
+Nếu không có địa điểm thì trả lời "không có".
+
+Ví dụ:
+- "Thời tiết Hà Nội?" → "Hà Nội"
+- "Sài Gòn hôm nay mưa không?" → "Sài Gòn"
+- "Mấy giờ rồi?" → "không có"
+
+Trả lời chỉ 1 dòng:"""
+
+    from config.model_config import GENERATION_CONFIG
+    config = GENERATION_CONFIG.copy()
+    config['max_new_tokens'] = 20
+    
+    inputs = minh_model.tokenizer([prompt_text], return_tensors="pt").to(minh_model.device)
+    outputs = minh_model.model.generate(
+        **inputs,
+        **config,
+        pad_token_id=minh_model.tokenizer.eos_token_id,
+        eos_token_id=minh_model.tokenizer.eos_token_id
+    )
+    
+    location = minh_model.tokenizer.decode(
+        outputs[0][inputs['input_ids'].shape[1]:], 
+        skip_special_tokens=True
+    ).strip()
+    
+    # Clean up
+    import re
+    location = re.sub(r'^\s*\[?\s*minh\s*\]?\s*:\s*', '', location, flags=re.IGNORECASE)
+    location = location.split('\n')[0].strip()
+    
     if location.lower() in ["không có", "none", ""]:
         return "Hanoi"
     return location
@@ -108,31 +137,45 @@ Chỉ trả về "yes" hoặc "no".
 def is_date_time_intent(question: str) -> bool:
     return "yes" in (date_time_intent_prompt | model).invoke({"question": question}).lower()
 
-date_time_prompt = PromptTemplate.from_template("""
-Hiện tại là {datetime_info}.
-đây là bạn: {personality} nhiệm vụ của bạn là nhiệm vụ của bạn là trả lời đúng ý câu hỏi không cần trả lời hết thông tin
-Câu hỏi: "{question}"
-Trả lời:
-"""
-)
-
 def date_time_response(question: str, datetime_info: str) -> str:
+    """
+    Trả lời câu hỏi về ngày giờ sử dụng minh_model (đã có system prompt).
+    """
     datetime_info = get_current_datetime()
-    return (date_time_prompt | model).invoke({"datetime_info": datetime_info, "question": question, "personality": personality})
-
-Weather_info_prompt = PromptTemplate.from_template(
-"""
-Thông tin về thời tiết: {weather_info}.
-đây là bạn: {personality} nhiệm vụ của bạn là trả lời đúng ý câu hỏi không cần trả lời hết thông tin
-
-Câu hỏi: "{question}"
-Trả lời:
-""")
-
+    
+    # Context rõ ràng hơn, nhắc model trả lời thân thiện
+    context = f"Thông tin thời gian: {datetime_info}\nHãy trả lời ngắn gọn (1 câu), thân thiện. Nhớ gọi người dùng là 'sếp' và xưng 'tôi'."
+    user_message = f"{question}"
+    
+    # Sử dụng minh_model.generate() đã có system prompt và cleanup
+    response = minh_model.generate(user_message, context=context)
+    
+    # Thêm filter Chinese nếu còn sót
+    import re
+    response = re.sub(r'[\u4e00-\u9fff\u3000-\u303f]+', '', response)
+    response = re.sub(r'Human:.*$', '', response, flags=re.MULTILINE).strip()
+    
+    return response
 
 def weather_response(question: str, weather_info: str) -> str:
-    weather_info= get_weather(location=extract_location_from_question(question))
-    return (Weather_info_prompt | model).invoke({"weather_info": weather_info, "question": question, "personality": personality})
+    """
+    Trả lời câu hỏi về thời tiết sử dụng minh_model (đã có system prompt).
+    """
+    weather_info = get_weather(location=extract_location_from_question(question))
+    
+    # Context rõ ràng hơn, nhắc model trả lời thân thiện
+    context = f"Thông tin thời tiết: {weather_info}\nHãy trả lời ngắn gọn (1-2 câu), thân thiện. Nhớ gọi người dùng là 'sếp' và xưng 'tôi'."
+    user_message = f"{question}"
+    
+    # Sử dụng minh_model.generate() đã có system prompt và cleanup
+    response = minh_model.generate(user_message, context=context)
+    
+    # Thêm filter Chinese nếu còn sót
+    import re
+    response = re.sub(r'[\u4e00-\u9fff\u3000-\u303f]+', '', response)
+    response = re.sub(r'Human:.*$', '', response, flags=re.MULTILINE).strip()
+    
+    return response
 
 extract_search_query_prompt = PromptTemplate.from_template("""
 Câu hỏi của người dùng: {question}
@@ -161,9 +204,47 @@ Chỉ trả về một kết quả cuối cùng:
 def extract_search_query(question: str) -> str:
     """
     Trích xuất truy vấn Google tối ưu, gần giống cách ChatGPT tìm kiếm.
+    Sử dụng minh_model trực tiếp với max_new_tokens thấp để tránh output dài.
     """
-    query = (extract_search_query_prompt | model).invoke({"question": question}).strip()
-    return query
+    prompt_text = f"""Câu hỏi của người dùng: {question}
+Bạn là một công cụ tạo truy vấn tìm kiếm Google tối ưu.
+CHỈ trả về DUY NHẤT câu truy vấn ngắn gọn nhất có thể.
+Không giải thích. Không nhắc lại câu hỏi. Không thêm từ thừa.
+Nếu người dùng viết tên riêng liền nhau (ví dụ: "hoanbucon"), KHÔNG được tách từ.
+
+Ví dụ:
+- "Dũng CT là ai?" → "Dũng CT"
+- "hoanbucon" → "hoanbucon"
+- "Python vs Java, cái nào nhanh hơn?" → "so sánh tốc độ Python vs Java"
+
+Trả lời chỉ 1 dòng:"""
+
+    # Sử dụng minh_model với max_new_tokens thấp
+    from config.model_config import GENERATION_CONFIG
+    config = GENERATION_CONFIG.copy()
+    config['max_new_tokens'] = 30  # Giới hạn chặt để tránh dài dòng
+    
+    # Generate với config tùy chỉnh
+    inputs = minh_model.tokenizer([prompt_text], return_tensors="pt").to(minh_model.device)
+    outputs = minh_model.model.generate(
+        **inputs,
+        **config,
+        pad_token_id=minh_model.tokenizer.eos_token_id,
+        eos_token_id=minh_model.tokenizer.eos_token_id
+    )
+    
+    query = minh_model.tokenizer.decode(
+        outputs[0][inputs['input_ids'].shape[1]:], 
+        skip_special_tokens=True
+    ).strip()
+    
+    # Clean up any extra text
+    import re
+    query = re.sub(r'^\s*\[?\s*minh\s*\]?\s*:\s*', '', query, flags=re.IGNORECASE)
+    # Take first line only
+    query = query.split('\n')[0].strip()
+    
+    return query if query else question
 # test sth
 # if __name__ == "__main__":
 #     while True:
